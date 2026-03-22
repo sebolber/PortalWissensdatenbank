@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
+import { ImportJobService } from './services/import-job.service';
 
 @Component({
   selector: 'app-root',
@@ -19,18 +20,26 @@ import { Router, RouterModule } from '@angular/router';
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             <span *ngIf="!sidebarCollapsed">Startseite</span>
           </a>
-          <a routerLink="/dokumente" routerLinkActive="active" class="nav-item" title="Dokumente">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-            <span *ngIf="!sidebarCollapsed">Dokumente</span>
-          </a>
           <a routerLink="/suche" routerLinkActive="active" class="nav-item" title="Suche">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <span *ngIf="!sidebarCollapsed">Suche</span>
           </a>
+          <a routerLink="/wissen" routerLinkActive="active" class="nav-item" title="Wissensobjekte">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+            <span *ngIf="!sidebarCollapsed">Wissensobjekte</span>
+          </a>
+          <a routerLink="/kodierempfehlung" routerLinkActive="active" class="nav-item" title="KI-Kodierempfehlung">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            <span *ngIf="!sidebarCollapsed">KI-Kodierempfehlung</span>
+          </a>
+          <a routerLink="/dokument-kodierung" routerLinkActive="active" class="nav-item" title="Dokument-Kodierung">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="12" y1="12" x2="12" y2="18"/></svg>
+            <span *ngIf="!sidebarCollapsed">Dokument-Kodierung</span>
+          </a>
           <div class="nav-section" *ngIf="!sidebarCollapsed">Aktionen</div>
-          <a routerLink="/dokumente/neu" routerLinkActive="active" class="nav-item" title="Neues Dokument">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            <span *ngIf="!sidebarCollapsed">Neues Dokument</span>
+          <a routerLink="/seg4-import" routerLinkActive="active" class="nav-item" title="SEG4 Import">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span *ngIf="!sidebarCollapsed">SEG4 Import</span>
           </a>
           <a routerLink="/kategorien" routerLinkActive="active" class="nav-item" title="Kategorien">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
@@ -47,6 +56,29 @@ import { Router, RouterModule } from '@angular/router';
         </button>
       </aside>
       <main class="main-content" [class.expanded]="sidebarCollapsed" [class.embedded]="embedded">
+        <!-- Globale Import-Status-Leiste -->
+        <div *ngIf="importJobs.hasActiveJobs()" class="import-banner">
+          <div class="import-banner-content">
+            <span class="import-spinner"></span>
+            <span>{{ importJobs.activeJobs().length === 1
+              ? 'Import laeuft: ' + importJobs.activeJobs()[0].fileName
+              : importJobs.activeJobs().length + ' Importe laufen...' }}</span>
+          </div>
+        </div>
+        <div *ngFor="let job of importJobs.recentDoneJobs()" class="import-banner"
+             [class.import-banner-success]="job.status === 'done'"
+             [class.import-banner-error]="job.status === 'error'">
+          <div class="import-banner-content">
+            <span *ngIf="job.status === 'done'">Import abgeschlossen: {{ job.fileName }}
+              ({{ job.result?.recommendationCount }} Empfehlungen)
+              <a [routerLink]="'/wissen/' + job.result?.id" class="banner-link">Anzeigen</a>
+            </span>
+            <span *ngIf="job.status === 'error'">Import fehlgeschlagen: {{ job.fileName }}
+              – {{ job.errorMessage }}
+            </span>
+            <button class="banner-dismiss" (click)="importJobs.dismissJob(job.id)">&times;</button>
+          </div>
+        </div>
         <router-outlet></router-outlet>
       </main>
     </div>
@@ -102,10 +134,32 @@ import { Router, RouterModule } from '@angular/router';
     }
     .main-content.expanded { margin-left: 56px; }
     .main-content.embedded { margin-left: 0; }
+
+    .import-banner {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.5rem;
+      padding: 0.625rem 1rem; margin-bottom: 0.75rem;
+    }
+    .import-banner-success { background: #f0fdf4; border-color: #86efac; }
+    .import-banner-error { background: #fef2f2; border-color: #fca5a5; }
+    .import-banner-content {
+      display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem;
+    }
+    .import-spinner {
+      width: 14px; height: 14px; border: 2px solid #bfdbfe; border-top-color: #3b82f6;
+      border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .banner-link { color: #2563eb; font-weight: 600; text-decoration: underline; margin-left: 0.25rem; }
+    .banner-dismiss {
+      margin-left: auto; background: none; border: none; font-size: 1.125rem;
+      cursor: pointer; color: #9ca3af; padding: 0 0.25rem;
+    }
+    .banner-dismiss:hover { color: #1f2937; }
   `]
 })
 export class AppComponent implements OnInit {
   private readonly router = inject(Router);
+  readonly importJobs = inject(ImportJobService);
   sidebarCollapsed = false;
   embedded = false;
 

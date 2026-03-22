@@ -3,7 +3,7 @@ package de.wissensdatenbank.dto;
 import java.util.List;
 
 public record SuggestionResponse(
-        String empfehlung,
+        List<String> empfehlungen,
         String llmModel,
         int tokenCount,
         List<UsedSource> quellen,

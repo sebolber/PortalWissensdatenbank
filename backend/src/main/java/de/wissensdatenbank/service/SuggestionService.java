@@ -11,7 +11,9 @@ import de.wissensdatenbank.retrieval.SearchQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -19,6 +21,7 @@ import java.util.List;
  * Dokument analysieren → Wissen suchen → Prompt bauen → LLM aufrufen → Audit loggen.
  */
 @Service
+@Transactional(readOnly = true)
 public class SuggestionService {
 
     private static final Logger log = LoggerFactory.getLogger(SuggestionService.class);
@@ -41,6 +44,7 @@ public class SuggestionService {
     /**
      * Generiert eine strukturierte Kodierempfehlung.
      */
+    @Transactional
     public SuggestionResponse generateSuggestion(String tenantId, String userId,
                                                    String jwtToken, SuggestionRequest request) {
         // 1. Retrieval: passende Wissensobjekte suchen
@@ -61,8 +65,9 @@ public class SuggestionService {
                 request.dokumentText(), candidates
         );
 
-        // 3. LLM aufrufen
-        LlmRequest llmRequest = new LlmRequest(tenantId, jwtToken, systemPrompt, userPrompt);
+        // 3. LLM aufrufen (8192 Tokens fuer mehrere Empfehlungen)
+        LlmRequest llmRequest = new LlmRequest(tenantId, jwtToken, request.modelConfigId(),
+                systemPrompt, userPrompt, 8192);
         LlmResponse llmResponse = llmClient.chat(llmRequest);
 
         // 4. Audit loggen
@@ -71,7 +76,10 @@ public class SuggestionService {
                 systemPrompt, userPrompt, llmResponse, candidates
         );
 
-        // 5. Response bauen
+        // 5. Response bauen: LLM-Antwort am Delimiter in einzelne Empfehlungen aufteilen
+        List<String> empfehlungen = splitEmpfehlungen(llmResponse.content());
+        log.info("LLM lieferte {} Empfehlung(en) fuer Mandant {}", empfehlungen.size(), tenantId);
+
         List<SuggestionResponse.UsedSource> quellen = candidates.stream()
                 .map(c -> new SuggestionResponse.UsedSource(
                         c.getItem().getId(),
@@ -82,11 +90,21 @@ public class SuggestionService {
                 .toList();
 
         return new SuggestionResponse(
-                llmResponse.content(),
+                empfehlungen,
                 llmResponse.model(),
                 llmResponse.tokenCount(),
                 quellen,
                 auditLog.getId()
         );
+    }
+
+    List<String> splitEmpfehlungen(String llmContent) {
+        if (llmContent == null || llmContent.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(llmContent.split(PromptBuilder.RECOMMENDATION_DELIMITER))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 }

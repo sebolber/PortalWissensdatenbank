@@ -42,7 +42,7 @@ public class KnowledgeItem {
     @Column(name = "binding_level", nullable = false, length = 30)
     private BindingLevel bindingLevel;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String keywords;
 
     @Column(name = "valid_from")

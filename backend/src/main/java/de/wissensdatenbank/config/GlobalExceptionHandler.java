@@ -1,5 +1,6 @@
 package de.wissensdatenbank.config;
 
+import de.wissensdatenbank.llm.LlmException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.badRequest()
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(LlmException.class)
+    public ResponseEntity<Map<String, String>> handleLlmException(LlmException ex) {
+        log.warn("LLM-Fehler: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(Map.of("error", ex.getMessage()));
     }
 

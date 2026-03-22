@@ -30,6 +30,8 @@ class PromptBuilderTest {
         assertTrue(prompt.contains("lex specialis"));
         assertTrue(prompt.contains("KURZFAZIT"));
         assertTrue(prompt.contains("UNSICHERHEITEN"));
+        assertTrue(prompt.contains("===EMPFEHLUNG==="));
+        assertTrue(prompt.contains("JEDE relevante Kodierempfehlung"));
     }
 
     @Test
