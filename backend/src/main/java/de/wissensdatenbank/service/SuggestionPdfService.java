@@ -16,8 +16,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -85,21 +87,44 @@ public class SuggestionPdfService {
             w.line("Relevante Passagen sind gelb markiert mit Kodierempfehlung-Referenz.");
             w.line("");
 
-            Set<String> highlightedLines = buildHighlightedLines(extractedText, empfehlungen);
+            Map<String, String> lineAnnotations = buildLineAnnotations(extractedText, empfehlungen);
 
-            for (String line : extractedText.split("\n")) {
+            // Zeilen blockweise verarbeiten: zusammenhaengende markierte Zeilen
+            // bekommen nur EINMAL am Ende des Blocks den Kommentar
+            String[] lines = extractedText.split("\n");
+            String currentBlockAnnotation = null;
+            List<String> currentBlock = new ArrayList<>();
+
+            for (String line : lines) {
                 String trimmed = line.trim();
-                if (trimmed.isEmpty()) {
-                    w.line("");
-                    continue;
-                }
-                String annotation = highlightedLines.contains(trimmed)
-                        ? findAnnotation(trimmed, extractedText, empfehlungen) : null;
+                String annotation = trimmed.isEmpty() ? null : lineAnnotations.get(trimmed);
+
                 if (annotation != null) {
-                    w.highlightedLine(trimmed, annotation);
+                    // Zeile gehoert zu einem markierten Block
+                    if (currentBlockAnnotation == null) {
+                        currentBlockAnnotation = annotation;
+                    }
+                    currentBlock.add(trimmed);
                 } else {
+                    // Block beenden falls einer offen ist
+                    if (!currentBlock.isEmpty()) {
+                        for (String blockLine : currentBlock) {
+                            w.highlightedLineNoAnnotation(blockLine);
+                        }
+                        w.annotationComment(currentBlockAnnotation);
+                        currentBlock.clear();
+                        currentBlockAnnotation = null;
+                    }
+                    // Normale Zeile ausgeben
                     w.line(trimmed);
                 }
+            }
+            // Letzten offenen Block abschliessen
+            if (!currentBlock.isEmpty()) {
+                for (String blockLine : currentBlock) {
+                    w.highlightedLineNoAnnotation(blockLine);
+                }
+                w.annotationComment(currentBlockAnnotation);
             }
 
             w.line("");
@@ -119,38 +144,38 @@ public class SuggestionPdfService {
         }
     }
 
-    private Set<String> buildHighlightedLines(String fullText, List<String> empfehlungen) {
-        Set<String> matched = new LinkedHashSet<>();
-        String fullLower = fullText.toLowerCase();
+    /**
+     * Ordnet jeder Textzeile die zugehoerige Empfehlung zu (oder null).
+     * Gibt eine Map zurueck: trimmed line -> "Empfehlung X".
+     */
+    private Map<String, String> buildLineAnnotations(String fullText, List<String> empfehlungen) {
+        Map<String, String> result = new LinkedHashMap<>();
         String[] textLines = fullText.split("\n");
 
-        for (String empfehlung : empfehlungen) {
-            for (String word : empfehlung.split("\\s+")) {
+        for (int i = 0; i < empfehlungen.size(); i++) {
+            // Signifikante Woerter aus dieser Empfehlung sammeln
+            Set<String> keywords = new LinkedHashSet<>();
+            for (String word : empfehlungen.get(i).split("\\s+")) {
                 String clean = word.replaceAll("[^a-zA-Z\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df]", "").toLowerCase();
-                if (clean.length() >= 6 && fullLower.contains(clean)) {
-                    for (String tl : textLines) {
-                        String trimmed = tl.trim();
-                        if (trimmed.length() > 10 && trimmed.toLowerCase().contains(clean)) {
-                            matched.add(trimmed);
-                        }
+                if (clean.length() >= 6) {
+                    keywords.add(clean);
+                }
+            }
+
+            String label = "Empfehlung " + (i + 1);
+            for (String tl : textLines) {
+                String trimmed = tl.trim();
+                if (trimmed.length() <= 10 || result.containsKey(trimmed)) continue;
+                String lower = trimmed.toLowerCase();
+                for (String kw : keywords) {
+                    if (lower.contains(kw)) {
+                        result.put(trimmed, label);
+                        break;
                     }
                 }
             }
         }
-        return matched;
-    }
-
-    private String findAnnotation(String line, String fullText, List<String> empfehlungen) {
-        String lineLower = line.toLowerCase();
-        for (int i = 0; i < empfehlungen.size(); i++) {
-            for (String word : empfehlungen.get(i).split("\\s+")) {
-                String clean = word.replaceAll("[^a-zA-Z\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df]", "").toLowerCase();
-                if (clean.length() >= 6 && lineLower.contains(clean)) {
-                    return "Empfehlung " + (i + 1);
-                }
-            }
-        }
-        return "Empfehlung";
+        return result;
     }
 
     /**
@@ -216,7 +241,8 @@ public class SuggestionPdfService {
             }
         }
 
-        void highlightedLine(String text, String annotation) throws IOException {
+        /** Gelb markierte Zeile OHNE Annotation-Kommentar. */
+        void highlightedLineNoAnnotation(String text) throws IOException {
             String safe = sanitize(text);
             List<String> wrapped = wrapText(safe, fontRegular, FONT_SIZE);
 
@@ -243,8 +269,11 @@ public class SuggestionPdfService {
                 safeShowText(part);
                 cs.endText();
             }
+        }
 
-            // Annotation in Blau
+        /** Blauer Kommentar am Ende eines markierten Blocks. */
+        void annotationComment(String annotation) throws IOException {
+            if (annotation == null) return;
             ensureSpace(LINE_HEIGHT);
             y -= 11;
             cs.setNonStrokingColor(0f, 0.43f, 0.78f);
@@ -254,6 +283,7 @@ public class SuggestionPdfService {
             safeShowText(">> " + sanitize(annotation));
             cs.endText();
             cs.setNonStrokingColor(0f, 0f, 0f);
+            y -= 4; // kleiner Abstand nach dem Kommentar
         }
 
         private void safeShowText(String text) throws IOException {
