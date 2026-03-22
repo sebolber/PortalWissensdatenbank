@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,11 @@ public class PortalCoreLlmClient implements LlmClient {
                     .body(body)
                     .retrieve()
                     .body(Map.class);
+        } catch (RestClientResponseException e) {
+            log.error("LLM-Proxy HTTP-Fehler {}: {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new LlmException(
+                    "LLM-Aufruf fehlgeschlagen (HTTP " + e.getStatusCode().value() + "): "
+                            + extractErrorMessage(e.getResponseBodyAsString()), e);
         } catch (Exception e) {
             log.error("LLM-Proxy-Aufruf fehlgeschlagen: {}", e.getMessage(), e);
             throw new LlmException(
@@ -70,5 +76,19 @@ public class PortalCoreLlmClient implements LlmClient {
         }
 
         return new LlmResponse(content, model, configId, tokenCount);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractErrorMessage(String responseBody) {
+        try {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> errorMap = mapper.readValue(responseBody, Map.class);
+            Object error = errorMap.get("error");
+            if (error != null) {
+                return error.toString();
+            }
+        } catch (Exception ignored) {
+        }
+        return responseBody;
     }
 }
