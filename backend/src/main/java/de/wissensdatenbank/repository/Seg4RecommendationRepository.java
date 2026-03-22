@@ -16,8 +16,9 @@ public interface Seg4RecommendationRepository extends JpaRepository<Seg4Recommen
     List<Seg4Recommendation> findByRecommendationNumberContainingIgnoreCase(String number);
 
     /**
-     * Volltextsuche ueber SEG4-Empfehlungsinhalte fuer einen bestimmten Mandanten.
-     * Gibt nur die relevanten Empfehlungen zurueck (nicht alle 915).
+     * Volltextsuche ueber SEG4-Empfehlungsinhalte mit OR-Verknuepfung.
+     * Verwendet websearch_to_tsquery fuer flexiblere Suche und rankt nach Relevanz.
+     * Gibt nur die relevantesten Empfehlungen zurueck (nicht alle 915).
      */
     @Query(value = """
             SELECT sr.* FROM wb_seg4_recommendations sr
@@ -27,7 +28,13 @@ public interface Seg4RecommendationRepository extends JpaRepository<Seg4Recommen
                   COALESCE(sr.schlagworte,'') || ' ' || COALESCE(sr.problem_erlaeuterung,'') || ' ' ||
                   COALESCE(sr.empfehlung,'') || ' ' || COALESCE(sr.entscheidung,'') || ' ' ||
                   COALESCE(sr.zusatzhinweis,''))
-                  @@ plainto_tsquery('german', :query)
+                  @@ to_tsquery('german', :query)
+            ORDER BY ts_rank_cd(
+                to_tsvector('german',
+                    COALESCE(sr.schlagworte,'') || ' ' || COALESCE(sr.problem_erlaeuterung,'') || ' ' ||
+                    COALESCE(sr.empfehlung,'') || ' ' || COALESCE(sr.entscheidung,'') || ' ' ||
+                    COALESCE(sr.zusatzhinweis,'')),
+                to_tsquery('german', :query)) DESC
             LIMIT 20
             """, nativeQuery = true)
     List<Seg4Recommendation> fullTextSearch(@Param("tenantId") String tenantId, @Param("query") String query);
