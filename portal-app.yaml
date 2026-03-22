@@ -1,0 +1,55 @@
+# portal-app.yaml - Manifest fuer Health Portal Apps
+
+name: Wissensdatenbank
+
+version: 1.0.0
+backendVersion: 1.0.0
+frontendVersion: 1.0.0
+
+description: Zentrale Wissensdatenbank mit Dokumentenverwaltung, Suche und Kategorisierung
+
+dockerfile: Dockerfile
+
+port: 8080
+
+healthCheck: /api/health
+
+env:
+  DB_URL: jdbc:postgresql://portal-db:5432/portal
+  DB_USER: portal
+  DB_PASS: portal
+
+pages:
+  - label: "Startseite"
+    route: "/"
+    icon: "home"
+  - label: "Dokumente"
+    route: "/dokumente"
+    icon: "book"
+    useCase: "wissensdatenbank-lesen"
+  - label: "Neues Dokument"
+    route: "/dokumente/neu"
+    icon: "plus"
+    useCase: "wissensdatenbank-schreiben"
+  - label: "Kategorien"
+    route: "/kategorien"
+    icon: "folder"
+    useCase: "wissensdatenbank-admin"
+  - label: "Konfiguration"
+    route: "/konfiguration"
+    icon: "settings"
+    useCase: "wissensdatenbank-admin"
+
+useCases:
+  - key: wissensdatenbank-lesen
+    label: "Wissensdatenbank - Lesen"
+    beschreibung: "Lesezugriff auf Dokumente"
+  - key: wissensdatenbank-schreiben
+    label: "Wissensdatenbank - Schreiben"
+    beschreibung: "Dokumente erstellen und bearbeiten"
+  - key: wissensdatenbank-veroeffentlichen
+    label: "Wissensdatenbank - Veroeffentlichen"
+    beschreibung: "Dokumente veroeffentlichen und archivieren"
+  - key: wissensdatenbank-admin
+    label: "Wissensdatenbank - Administration"
+    beschreibung: "Kategorien, Tags und Einstellungen verwalten"
