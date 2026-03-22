@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import de.wissensdatenbank.dto.DocumentCreateRequest;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -34,13 +36,19 @@ public class DocumentSuggestionService {
 
     private final DocumentSuggestionRepository repository;
     private final SuggestionService suggestionService;
+    private final DocumentService documentService;
+    private final SuggestionPdfService pdfService;
     private final ObjectMapper objectMapper;
 
     public DocumentSuggestionService(DocumentSuggestionRepository repository,
                                       SuggestionService suggestionService,
+                                      DocumentService documentService,
+                                      SuggestionPdfService pdfService,
                                       ObjectMapper objectMapper) {
         this.repository = repository;
         this.suggestionService = suggestionService;
+        this.documentService = documentService;
+        this.pdfService = pdfService;
         this.objectMapper = objectMapper;
     }
 
@@ -157,6 +165,89 @@ public class DocumentSuggestionService {
             ds.setErrorMessage(e.getMessage());
             repository.save(ds);
         }
+    }
+
+    /**
+     * Erzeugt ein PDF mit den Kodierempfehlungen.
+     */
+    @Transactional(readOnly = true)
+    public byte[] generateResultPdf(String tenantId, Long id) throws IOException {
+        DocumentSuggestion ds = repository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Nicht gefunden: " + id));
+        DocumentSuggestionDto dto = toDto(ds);
+        return pdfService.generateResultPdf(ds, dto.empfehlungen(), dto.quellen());
+    }
+
+    /**
+     * Erzeugt ein annotiertes PDF des Originaldokuments mit gelb markierten Passagen.
+     */
+    @Transactional(readOnly = true)
+    public byte[] generateAnnotatedPdf(String tenantId, Long id) throws IOException {
+        DocumentSuggestion ds = repository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Nicht gefunden: " + id));
+        DocumentSuggestionDto dto = toDto(ds);
+        return pdfService.generateAnnotatedPdf(ds, dto.empfehlungen(), dto.quellen());
+    }
+
+    /**
+     * Erzeugt ein neues Dokument in der Wissensdatenbank aus dem hochgeladenen Dokument
+     * mit annotierten Kodierempfehlungen.
+     */
+    @Transactional
+    public de.wissensdatenbank.dto.DocumentDto createDocumentFromSuggestion(String tenantId, Long id) {
+        DocumentSuggestion ds = repository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Nicht gefunden: " + id));
+
+        if (!"COMPLETED".equals(ds.getStatus())) {
+            throw new IllegalStateException("Kodierempfehlung ist noch nicht abgeschlossen.");
+        }
+
+        DocumentSuggestionDto dto = toDto(ds);
+
+        // Inhalt: Originaltext mit markierten Passagen und Empfehlungen
+        StringBuilder content = new StringBuilder();
+        content.append("# Originaldokument: ").append(ds.getFileName()).append("\n\n");
+        content.append(ds.getExtractedText()).append("\n\n");
+        content.append("---\n\n");
+        content.append("# KI-Kodierempfehlungen\n\n");
+        for (int i = 0; i < dto.empfehlungen().size(); i++) {
+            content.append("## Empfehlung ").append(i + 1).append("\n\n");
+            content.append(dto.empfehlungen().get(i)).append("\n\n");
+        }
+
+        if (dto.quellen() != null && !dto.quellen().isEmpty()) {
+            content.append("## Verwendete Quellen\n\n");
+            for (SuggestionResponse.UsedSource q : dto.quellen()) {
+                content.append("- **").append(q.title()).append("** [").append(q.bindingLevel()).append("] ")
+                       .append(q.matchReason()).append("\n");
+            }
+        }
+
+        // Zusammenfassung aus erster Empfehlung (KURZFAZIT)
+        String summary = "";
+        if (!dto.empfehlungen().isEmpty()) {
+            String first = dto.empfehlungen().get(0);
+            int kurzfazitIdx = first.indexOf("KURZFAZIT:");
+            if (kurzfazitIdx >= 0) {
+                int endIdx = first.indexOf("\n", kurzfazitIdx);
+                summary = first.substring(kurzfazitIdx + "KURZFAZIT:".length(),
+                        endIdx > 0 ? endIdx : Math.min(first.length(), kurzfazitIdx + 200)).trim();
+            }
+            if (summary.isEmpty()) {
+                summary = first.substring(0, Math.min(first.length(), 200)).trim();
+            }
+        }
+
+        DocumentCreateRequest createReq = new DocumentCreateRequest(
+                "Kodierempfehlung: " + ds.getFileName(),
+                content.toString(),
+                summary.length() > 2000 ? summary.substring(0, 2000) : summary,
+                null,
+                List.of(),
+                true
+        );
+
+        return documentService.create(createReq);
     }
 
     private String extractText(MultipartFile file) throws IOException {

@@ -1,8 +1,10 @@
 package de.wissensdatenbank.controller;
 
 import de.wissensdatenbank.config.SecurityHelper;
+import de.wissensdatenbank.dto.DocumentDto;
 import de.wissensdatenbank.dto.DocumentSuggestionDto;
 import de.wissensdatenbank.service.DocumentSuggestionService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -72,6 +74,45 @@ public class DocumentSuggestionController {
         String jwtToken = securityHelper.getCurrentToken();
         service.startSuggestion(id, tenantId, userId, jwtToken);
         return ResponseEntity.accepted().build();
+    }
+
+    /**
+     * GET /api/document-suggestions/{id}/pdf
+     * Gibt das Kodierergebnis als PDF-Download zurueck.
+     */
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadResultPdf(@PathVariable Long id) throws IOException {
+        String tenantId = securityHelper.getCurrentTenantId();
+        byte[] pdf = service.generateResultPdf(tenantId, id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"kodierempfehlung-" + id + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    /**
+     * GET /api/document-suggestions/{id}/annotated-pdf
+     * Gibt das annotierte Originaldokument als PDF mit gelb markierten Passagen zurueck.
+     */
+    @GetMapping("/{id}/annotated-pdf")
+    public ResponseEntity<byte[]> downloadAnnotatedPdf(@PathVariable Long id) throws IOException {
+        String tenantId = securityHelper.getCurrentTenantId();
+        byte[] pdf = service.generateAnnotatedPdf(tenantId, id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"annotiert-" + id + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    /**
+     * POST /api/document-suggestions/{id}/create-document
+     * Erzeugt ein neues Dokument in der Wissensdatenbank aus dem Kodierergebnis.
+     */
+    @PostMapping("/{id}/create-document")
+    public ResponseEntity<DocumentDto> createDocument(@PathVariable Long id) {
+        String tenantId = securityHelper.getCurrentTenantId();
+        DocumentDto doc = service.createDocumentFromSuggestion(tenantId, id);
+        return ResponseEntity.ok(doc);
     }
 
     /**

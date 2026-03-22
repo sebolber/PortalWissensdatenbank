@@ -91,6 +91,14 @@ import { DocumentSuggestionDto } from '../../models/knowledge.model';
                     (click)="showResult(doc)">
               Ergebnis anzeigen
             </button>
+            <button class="btn btn-secondary btn-sm"
+                    *ngIf="doc.status === 'COMPLETED'"
+                    (click)="downloadPdf(doc)" title="Ergebnis als PDF">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              PDF
+            </button>
             <button class="btn btn-danger btn-sm"
                     (click)="deleteDocument(doc)"
                     [disabled]="doc.status === 'PROCESSING'">
@@ -117,6 +125,28 @@ import { DocumentSuggestionDto } from '../../models/knowledge.model';
           <div class="result-meta">
             <span *ngIf="selectedDocument.llmModel">Modell: {{ selectedDocument.llmModel }}</span>
             <span *ngIf="selectedDocument.tokenCount">Tokens: {{ selectedDocument.tokenCount }}</span>
+          </div>
+
+          <div class="dialog-actions">
+            <button class="btn btn-primary btn-sm" (click)="downloadPdf(selectedDocument!)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Ergebnis-PDF
+            </button>
+            <button class="btn btn-primary btn-sm" (click)="downloadAnnotatedPdf(selectedDocument!)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Annotiertes Dokument
+            </button>
+            <button class="btn btn-secondary btn-sm" (click)="createDocument(selectedDocument!)"
+                    [disabled]="creatingDocument">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              {{ creatingDocument ? 'Wird erstellt...' : 'Dokument erzeugen' }}
+            </button>
           </div>
 
           <div class="empfehlung-list" *ngIf="selectedDocument.empfehlungen.length > 0">
@@ -290,6 +320,17 @@ import { DocumentSuggestionDto } from '../../models/knowledge.model';
     .binding-lex_specialis { background: #fef3c7; color: #92400e; }
     .binding-informativ { background: #e5e7eb; color: #374151; }
 
+    .dialog-actions {
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+      padding: 0.75rem 0; margin-bottom: 1rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .success-msg {
+      background: #f0fdf4; border: 1px solid #86efac; border-radius: 0.5rem;
+      padding: 0.625rem 1rem; margin-bottom: 1rem; font-size: 0.8125rem; color: #065f46;
+    }
+    .success-msg a { color: #2563eb; font-weight: 600; text-decoration: underline; }
+
     .no-results { text-align: center; color: #9ca3af; padding: 2rem; }
 
     .empty-state { text-align: center; padding: 3rem; }
@@ -308,6 +349,8 @@ export class DokumentKodierungComponent implements OnInit, OnDestroy {
   loading = false;
   refreshing = false;
   isDragOver = false;
+  creatingDocument = false;
+  createdDocumentId: string | null = null;
 
   private pollInterval: any;
 
@@ -423,6 +466,45 @@ export class DokumentKodierungComponent implements OnInit, OnDestroy {
       case 'ERROR': return 'Fehler';
       default: return status;
     }
+  }
+
+  downloadPdf(doc: DocumentSuggestionDto): void {
+    this.chatApi.downloadResultPdf(doc.id).subscribe({
+      next: blob => this.triggerDownload(blob, 'kodierempfehlung-' + doc.id + '.pdf'),
+      error: err => alert('PDF-Download fehlgeschlagen: ' + (err.error?.error || err.message))
+    });
+  }
+
+  downloadAnnotatedPdf(doc: DocumentSuggestionDto): void {
+    this.chatApi.downloadAnnotatedPdf(doc.id).subscribe({
+      next: blob => this.triggerDownload(blob, 'annotiert-' + doc.id + '.pdf'),
+      error: err => alert('PDF-Download fehlgeschlagen: ' + (err.error?.error || err.message))
+    });
+  }
+
+  createDocument(doc: DocumentSuggestionDto): void {
+    this.creatingDocument = true;
+    this.createdDocumentId = null;
+    this.chatApi.createDocumentFromSuggestion(doc.id).subscribe({
+      next: result => {
+        this.creatingDocument = false;
+        this.createdDocumentId = result.id;
+        alert('Dokument "' + result.title + '" wurde erstellt.');
+      },
+      error: err => {
+        this.creatingDocument = false;
+        alert('Dokument-Erstellung fehlgeschlagen: ' + (err.error?.error || err.message));
+      }
+    });
+  }
+
+  private triggerDownload(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
   }
 
   formatText(text: string): string {

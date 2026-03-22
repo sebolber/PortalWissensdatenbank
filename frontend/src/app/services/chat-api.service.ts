@@ -47,4 +47,16 @@ export class ChatApiService {
   deleteDocumentSuggestion(id: number): Observable<void> {
     return this.http.delete<void>(`/api/document-suggestions/${id}`);
   }
+
+  downloadResultPdf(id: number): Observable<Blob> {
+    return this.http.get(`/api/document-suggestions/${id}/pdf`, { responseType: 'blob' });
+  }
+
+  downloadAnnotatedPdf(id: number): Observable<Blob> {
+    return this.http.get(`/api/document-suggestions/${id}/annotated-pdf`, { responseType: 'blob' });
+  }
+
+  createDocumentFromSuggestion(id: number): Observable<any> {
+    return this.http.post<any>(`/api/document-suggestions/${id}/create-document`, {});
+  }
 }
