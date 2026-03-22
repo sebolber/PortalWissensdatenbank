@@ -95,13 +95,26 @@ public class DocumentSuggestionController {
      * Gibt das annotierte Originaldokument als PDF mit gelb markierten Passagen zurueck.
      */
     @GetMapping("/{id}/annotated-pdf")
-    public ResponseEntity<byte[]> downloadAnnotatedPdf(@PathVariable Long id) throws IOException {
+    public ResponseEntity<byte[]> downloadAnnotatedPdf(@PathVariable Long id) {
         String tenantId = securityHelper.getCurrentTenantId();
-        byte[] pdf = service.generateAnnotatedPdf(tenantId, id);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"annotiert-" + id + ".pdf\"")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(pdf);
+        try {
+            byte[] pdf = service.generateAnnotatedPdf(tenantId, id);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"annotiert-" + id + ".pdf\"")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(pdf);
+        } catch (Exception e) {
+            // Fallback: regulaeres Ergebnis-PDF wenn annotiertes fehlschlaegt
+            try {
+                byte[] pdf = service.generateResultPdf(tenantId, id);
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"kodierempfehlung-" + id + ".pdf\"")
+                        .contentType(MediaType.APPLICATION_PDF)
+                        .body(pdf);
+            } catch (Exception e2) {
+                return ResponseEntity.internalServerError().build();
+            }
+        }
     }
 
     /**

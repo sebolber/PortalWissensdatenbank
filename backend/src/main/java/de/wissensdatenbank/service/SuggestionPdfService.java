@@ -126,7 +126,7 @@ public class SuggestionPdfService {
 
         for (String empfehlung : empfehlungen) {
             for (String word : empfehlung.split("\\s+")) {
-                String clean = word.replaceAll("[^a-zA-ZaeoeueAeOeUess]", "").toLowerCase();
+                String clean = word.replaceAll("[^a-zA-Z\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df]", "").toLowerCase();
                 if (clean.length() >= 6 && fullLower.contains(clean)) {
                     for (String tl : textLines) {
                         String trimmed = tl.trim();
@@ -144,7 +144,7 @@ public class SuggestionPdfService {
         String lineLower = line.toLowerCase();
         for (int i = 0; i < empfehlungen.size(); i++) {
             for (String word : empfehlungen.get(i).split("\\s+")) {
-                String clean = word.replaceAll("[^a-zA-ZaeoeueAeOeUess]", "").toLowerCase();
+                String clean = word.replaceAll("[^a-zA-Z\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc\u00df]", "").toLowerCase();
                 if (clean.length() >= 6 && lineLower.contains(clean)) {
                     return "Empfehlung " + (i + 1);
                 }
@@ -194,7 +194,7 @@ public class SuggestionPdfService {
             cs.beginText();
             cs.setFont(fontBold, HEADING_SIZE);
             cs.newLineAtOffset(MARGIN, y);
-            cs.showText(safe);
+            safeShowText(safe);
             cs.endText();
         }
 
@@ -211,7 +211,7 @@ public class SuggestionPdfService {
                 cs.beginText();
                 cs.setFont(fontRegular, FONT_SIZE);
                 cs.newLineAtOffset(MARGIN, y);
-                cs.showText(part);
+                safeShowText(part);
                 cs.endText();
             }
         }
@@ -240,7 +240,7 @@ public class SuggestionPdfService {
                 cs.beginText();
                 cs.setFont(fontRegular, FONT_SIZE);
                 cs.newLineAtOffset(MARGIN, y);
-                cs.showText(part);
+                safeShowText(part);
                 cs.endText();
             }
 
@@ -251,9 +251,23 @@ public class SuggestionPdfService {
             cs.beginText();
             cs.setFont(fontBold, 8);
             cs.newLineAtOffset(MARGIN + 4, y);
-            cs.showText(">> " + sanitize(annotation));
+            safeShowText(">> " + sanitize(annotation));
             cs.endText();
             cs.setNonStrokingColor(0f, 0f, 0f);
+        }
+
+        private void safeShowText(String text) throws IOException {
+            try {
+                cs.showText(text);
+            } catch (Exception e) {
+                // Aggressiver Fallback: nur ASCII behalten
+                String ascii = text.replaceAll("[^\\x20-\\x7E]", "?");
+                try {
+                    cs.showText(ascii);
+                } catch (Exception e2) {
+                    cs.showText("(Darstellungsfehler)");
+                }
+            }
         }
 
         void finish() throws IOException {
@@ -300,6 +314,15 @@ public class SuggestionPdfService {
                 if (c >= 0xA0 && c <= 0xFF) { sb.append(c); continue; }
                 // Windows-1252 mapped characters
                 switch (c) {
+                    case '\u0080': case '\u0081': case '\u0082': case '\u0083':
+                    case '\u0084': case '\u0085': case '\u0086': case '\u0087':
+                    case '\u0088': case '\u0089': case '\u008A': case '\u008B':
+                    case '\u008C': case '\u008D': case '\u008E': case '\u008F':
+                    case '\u0090': case '\u0091': case '\u0092': case '\u0093':
+                    case '\u0094': case '\u0095': case '\u0096': case '\u0097':
+                    case '\u0098': case '\u0099': case '\u009A': case '\u009B':
+                    case '\u009C': case '\u009D': case '\u009E': case '\u009F':
+                        sb.append(' '); break; // C1 control chars - nicht in WinAnsi
                     case '\u2013': sb.append('-'); break;  // en-dash
                     case '\u2014': sb.append('-'); break;  // em-dash
                     case '\u2018': case '\u2019': sb.append('\''); break; // smart quotes
@@ -307,12 +330,14 @@ public class SuggestionPdfService {
                     case '\u2022': sb.append('*'); break;  // bullet
                     case '\u2026': sb.append("..."); break; // ellipsis
                     case '\u20AC': sb.append("EUR"); break; // euro sign
+                    case '\u2010': case '\u2011': case '\u2012': sb.append('-'); break; // hyphens
+                    case '\u2039': sb.append('<'); break;  // single angle quote
+                    case '\u203A': sb.append('>'); break;
+                    case '\u2002': case '\u2003': case '\u2009': case '\u200A':
+                    case '\u200B': case '\u00AD':
+                        sb.append(' '); break; // various spaces
                     default:
-                        if (c > 0xFF) {
-                            sb.append('?');
-                        } else {
-                            sb.append(c);
-                        }
+                        sb.append(' '); // alles andere durch Leerzeichen ersetzen
                 }
             }
             return sb.toString();
