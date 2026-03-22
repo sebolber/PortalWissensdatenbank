@@ -22,6 +22,7 @@ export interface SuggestionRequest {
   dokumentText: string;
   diagnosen: string[];
   massnahmen: string[];
+  modelConfigId?: string | null;
 }
 
 export interface UsedSource {

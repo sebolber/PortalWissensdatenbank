@@ -33,12 +33,14 @@ public class PortalCoreLlmClient implements LlmClient {
     @Override
     @SuppressWarnings("unchecked")
     public LlmResponse chat(LlmRequest request) {
-        Map<String, Object> body = Map.of(
-                "systemPrompt", request.systemPrompt(),
-                "messages", List.of(
-                        Map.of("role", "user", "content", request.userPrompt())
-                )
-        );
+        var body = new java.util.HashMap<String, Object>();
+        body.put("systemPrompt", request.systemPrompt());
+        body.put("messages", List.of(
+                Map.of("role", "user", "content", request.userPrompt())
+        ));
+        if (request.configId() != null && !request.configId().isBlank()) {
+            body.put("configId", request.configId());
+        }
 
         Map<String, Object> response;
         try {

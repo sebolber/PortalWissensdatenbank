@@ -6,6 +6,7 @@ package de.wissensdatenbank.llm;
 public record LlmRequest(
         String tenantId,
         String jwtToken,
+        String configId,
         String systemPrompt,
         String userPrompt
 ) {

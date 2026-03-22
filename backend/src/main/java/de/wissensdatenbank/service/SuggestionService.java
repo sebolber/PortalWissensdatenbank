@@ -65,7 +65,8 @@ public class SuggestionService {
         );
 
         // 3. LLM aufrufen
-        LlmRequest llmRequest = new LlmRequest(tenantId, jwtToken, systemPrompt, userPrompt);
+        LlmRequest llmRequest = new LlmRequest(tenantId, jwtToken, request.modelConfigId(),
+                systemPrompt, userPrompt);
         LlmResponse llmResponse = llmClient.chat(llmRequest);
 
         // 4. Audit loggen
