@@ -102,10 +102,15 @@ public class Seg4ImportService {
     }
 
     private String collectKeywords(List<Seg4ParsedFields> list) {
-        return list.stream()
+        String all = list.stream()
                 .map(Seg4ParsedFields::getSchlagworte)
                 .filter(s -> s != null && !s.isBlank())
                 .collect(Collectors.joining(", "));
+        // DB-Spalte ist varchar(1000)
+        if (all.length() > 1000) {
+            all = all.substring(0, 997) + "...";
+        }
+        return all;
     }
 
     private Seg4Recommendation toEntity(Seg4ParsedFields parsed) {

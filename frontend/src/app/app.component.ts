@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
+import { ImportJobService } from './services/import-job.service';
 
 @Component({
   selector: 'app-root',
@@ -59,6 +60,29 @@ import { Router, RouterModule } from '@angular/router';
         </button>
       </aside>
       <main class="main-content" [class.expanded]="sidebarCollapsed" [class.embedded]="embedded">
+        <!-- Globale Import-Status-Leiste -->
+        <div *ngIf="importJobs.hasActiveJobs()" class="import-banner">
+          <div class="import-banner-content">
+            <span class="import-spinner"></span>
+            <span>{{ importJobs.activeJobs().length === 1
+              ? 'Import laeuft: ' + importJobs.activeJobs()[0].fileName
+              : importJobs.activeJobs().length + ' Importe laufen...' }}</span>
+          </div>
+        </div>
+        <div *ngFor="let job of importJobs.recentDoneJobs()" class="import-banner"
+             [class.import-banner-success]="job.status === 'done'"
+             [class.import-banner-error]="job.status === 'error'">
+          <div class="import-banner-content">
+            <span *ngIf="job.status === 'done'">Import abgeschlossen: {{ job.fileName }}
+              ({{ job.result?.recommendationCount }} Empfehlungen)
+              <a [routerLink]="'/wissen/' + job.result?.id" class="banner-link">Anzeigen</a>
+            </span>
+            <span *ngIf="job.status === 'error'">Import fehlgeschlagen: {{ job.fileName }}
+              – {{ job.errorMessage }}
+            </span>
+            <button class="banner-dismiss" (click)="importJobs.dismissJob(job.id)">&times;</button>
+          </div>
+        </div>
         <router-outlet></router-outlet>
       </main>
     </div>
@@ -114,10 +138,32 @@ import { Router, RouterModule } from '@angular/router';
     }
     .main-content.expanded { margin-left: 56px; }
     .main-content.embedded { margin-left: 0; }
+
+    .import-banner {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.5rem;
+      padding: 0.625rem 1rem; margin-bottom: 0.75rem;
+    }
+    .import-banner-success { background: #f0fdf4; border-color: #86efac; }
+    .import-banner-error { background: #fef2f2; border-color: #fca5a5; }
+    .import-banner-content {
+      display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem;
+    }
+    .import-spinner {
+      width: 14px; height: 14px; border: 2px solid #bfdbfe; border-top-color: #3b82f6;
+      border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .banner-link { color: #2563eb; font-weight: 600; text-decoration: underline; margin-left: 0.25rem; }
+    .banner-dismiss {
+      margin-left: auto; background: none; border: none; font-size: 1.125rem;
+      cursor: pointer; color: #9ca3af; padding: 0 0.25rem;
+    }
+    .banner-dismiss:hover { color: #1f2937; }
   `]
 })
 export class AppComponent implements OnInit {
   private readonly router = inject(Router);
+  readonly importJobs = inject(ImportJobService);
   sidebarCollapsed = false;
   embedded = false;
 
