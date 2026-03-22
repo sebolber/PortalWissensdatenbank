@@ -15,10 +15,18 @@ export const portalAuthInterceptor: HttpInterceptorFn = (req, next) => {
   // Im iframe: /api/... auf app-proxy umschreiben
   if (window.self !== window.top && url.startsWith('/api/')) {
     const baseElement = document.querySelector('base');
-    const baseHref = baseElement?.getAttribute('href') || '/';
-    if (baseHref !== '/' && baseHref !== './') {
-      // baseHref ist z.B. "/app-proxy/portal-app-portalwissensdatenbank/8080/"
-      url = baseHref + url.substring(1); // "/api/foo" -> "{baseHref}api/foo"
+    const rawHref = baseElement?.getAttribute('href') || '/';
+    if (rawHref !== '/') {
+      if (rawHref !== './') {
+        // baseHref ist z.B. "/app-proxy/portal-app-portalwissensdatenbank/8080/"
+        url = rawHref + url.substring(1); // "/api/foo" -> "{baseHref}api/foo"
+      } else {
+        // sub_filter hat base href nicht umgeschrieben - Proxy-Pfad aus Location ableiten
+        const match = window.location.pathname.match(/^(\/app-proxy\/[^/]+\/\d+\/)/);
+        if (match) {
+          url = match[1] + url.substring(1); // "/api/foo" -> "/app-proxy/.../api/foo"
+        }
+      }
     }
   }
 
