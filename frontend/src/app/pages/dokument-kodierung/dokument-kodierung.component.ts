@@ -503,8 +503,12 @@ export class DokumentKodierungComponent implements OnInit, OnDestroy {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    // URL erst nach kurzer Verzoegerung freigeben damit Download starten kann
+    setTimeout(() => window.URL.revokeObjectURL(url), 5000);
   }
 
   formatText(text: string): string {
