@@ -1,0 +1,115 @@
+import { Component, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+import { ChatApiService } from '../../services/chat-api.service';
+import { SuggestionResponse } from '../../models/knowledge.model';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule],
+  template: `
+    <div class="page-header">
+      <h1>KI-Kodierempfehlung</h1>
+      <a routerLink="/wissen" class="btn btn-secondary">Zurueck</a>
+    </div>
+
+    <div class="card">
+      <h3>Behandlungsdokument</h3>
+
+      <div class="form-group">
+        <label>Dokumenttext / relevante Textstellen</label>
+        <textarea class="form-control" rows="6" [(ngModel)]="dokumentText"
+                  placeholder="Fuegen Sie hier den relevanten Text ein..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Diagnosen (je Zeile eine)</label>
+        <textarea class="form-control" rows="3" [(ngModel)]="diagnosenText"
+                  placeholder="z.B. I50.0 Herzinsuffizienz"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Massnahmen / Prozeduren (je Zeile eine)</label>
+        <textarea class="form-control" rows="3" [(ngModel)]="massnahmenText"
+                  placeholder="z.B. 5-377.1 Implantation Herzschrittmacher"></textarea>
+      </div>
+
+      <button class="btn btn-primary" (click)="submit()" [disabled]="loading() || !dokumentText.trim()">
+        {{ loading() ? 'Analyse laeuft...' : 'Kodierempfehlung generieren' }}
+      </button>
+
+      <div *ngIf="error()" class="error-msg" style="margin-top:1rem">{{ error() }}</div>
+    </div>
+
+    <!-- Ergebnis -->
+    <div *ngIf="response()" class="result-section">
+      <div class="card suggestion-card">
+        <h3>Kodierempfehlung</h3>
+        <div class="suggestion-content" [innerHTML]="formatResponse(response()!.empfehlung)"></div>
+        <div class="meta-info">
+          <span>Modell: {{ response()!.llmModel }}</span>
+          <span>Tokens: {{ response()!.tokenCount }}</span>
+          <span>Audit-ID: {{ response()!.auditLogId }}</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:1rem" *ngIf="response()!.quellen.length > 0">
+        <h3>Verwendete Quellen</h3>
+        <div *ngFor="let q of response()!.quellen" class="source-item">
+          <a [routerLink]="'/wissen/' + q.id"><strong>{{ q.title }}</strong></a>
+          <span class="badge" style="margin-left:0.5rem">{{ q.bindingLevel }}</span>
+          <span *ngIf="q.bindingLevel === 'LEX_SPECIALIS'" class="lex-hint">lex specialis</span>
+          <div class="match-reason">{{ q.matchReason }}</div>
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .form-group { margin-bottom:1rem; }
+    .form-group label { display:block; font-weight:500; margin-bottom:0.25rem; }
+    .error-msg { color:#dc2626; padding:0.75rem; background:#fef2f2; border-radius:6px; }
+    .result-section { margin-top:1.5rem; }
+    .suggestion-card { border-left:4px solid #2563eb; }
+    .suggestion-content { white-space:pre-wrap; line-height:1.6; }
+    .meta-info { margin-top:1rem; display:flex; gap:1.5rem; font-size:0.8rem; color:#78716c; }
+    .source-item { padding:0.75rem 0; border-bottom:1px solid #e7e5e4; }
+    .source-item:last-child { border-bottom:none; }
+    .match-reason { font-size:0.8rem; color:#78716c; margin-top:0.25rem; }
+    .lex-hint { font-size:0.75rem; color:#dc2626; font-weight:600; margin-left:0.5rem; }
+  `]
+})
+export class ChatComponent {
+  private readonly chatApi = inject(ChatApiService);
+
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly response = signal<SuggestionResponse | null>(null);
+
+  dokumentText = '';
+  diagnosenText = '';
+  massnahmenText = '';
+
+  submit(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.response.set(null);
+
+    const diagnosen = this.diagnosenText.split('\n').map(s => s.trim()).filter(Boolean);
+    const massnahmen = this.massnahmenText.split('\n').map(s => s.trim()).filter(Boolean);
+
+    this.chatApi.generateSuggestion({
+      dokumentText: this.dokumentText,
+      diagnosen,
+      massnahmen
+    }).subscribe({
+      next: res => { this.response.set(res); this.loading.set(false); },
+      error: err => { this.error.set(err.error?.message || 'Fehler bei der KI-Analyse'); this.loading.set(false); }
+    });
+  }
+
+  formatResponse(text: string): string {
+    return text.replace(/\n/g, '<br>');
+  }
+}
