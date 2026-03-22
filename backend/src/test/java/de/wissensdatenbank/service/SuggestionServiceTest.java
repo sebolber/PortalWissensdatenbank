@@ -54,7 +54,7 @@ class SuggestionServiceTest {
         auditLog.setId(99L);
         when(auditService.log(any(), any(), any(), any(), any(), any(), any())).thenReturn(auditLog);
 
-        SuggestionRequest request = new SuggestionRequest("Patient Text", List.of("I50.0"), List.of("5-377.1"));
+        SuggestionRequest request = new SuggestionRequest("Patient Text", List.of("I50.0"), List.of("5-377.1"), null);
 
         // when
         SuggestionResponse response = suggestionService.generateSuggestion("t1", "u1", "jwt", request);
