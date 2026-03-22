@@ -2,6 +2,7 @@ package de.wissensdatenbank.llm;
 
 import de.wissensdatenbank.entity.KnowledgeItem;
 import de.wissensdatenbank.entity.Seg4Recommendation;
+import de.wissensdatenbank.enums.KnowledgeType;
 import de.wissensdatenbank.retrieval.KnowledgeCandidate;
 import org.springframework.stereotype.Component;
 
@@ -87,7 +88,13 @@ public class PromptBuilder {
                 sb.append("Schlagworte: ").append(item.getKeywords()).append('\n');
             }
 
-            appendSeg4Recommendations(sb, item.getSeg4Recommendations());
+            // Nur die relevanten (per Suche getroffenen) SEG4-Empfehlungen einbeziehen
+            List<Seg4Recommendation> recsToShow = c.getMatchedRecommendations();
+            if (recsToShow.isEmpty() && item.getKnowledgeType() != KnowledgeType.SEG4) {
+                // Fuer Nicht-SEG4-Items: alle Empfehlungen zeigen (normalerweise 0)
+                recsToShow = item.getSeg4Recommendations();
+            }
+            appendSeg4Recommendations(sb, recsToShow);
 
             if (item.getSummary() != null) {
                 sb.append("Zusammenfassung: ").append(item.getSummary()).append('\n');
