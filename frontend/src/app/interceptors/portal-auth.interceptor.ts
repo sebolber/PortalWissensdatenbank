@@ -2,8 +2,9 @@ import { HttpInterceptorFn } from '@angular/common/http';
 
 /**
  * Liest das Portal-JWT aus dem localStorage und haengt es an alle API-Requests an.
- * Wenn die App im Portal-iframe laeuft, werden absolute /api/... URLs auf den
- * app-proxy Pfad umgeschrieben, damit sie bei dieser App landen (nicht bei PortalCore).
+ * Wenn die App ueber den Portal-Proxy laeuft (iframe ODER direkte Proxy-URL),
+ * werden absolute /api/... URLs auf den app-proxy Pfad umgeschrieben,
+ * damit sie bei dieser App landen (nicht bei PortalCore).
  */
 export const portalAuthInterceptor: HttpInterceptorFn = (req, next) => {
   if (!req.url.includes('api/')) {
@@ -12,21 +13,11 @@ export const portalAuthInterceptor: HttpInterceptorFn = (req, next) => {
 
   let url = req.url;
 
-  // Im iframe: /api/... auf app-proxy umschreiben
-  if (window.self !== window.top && url.startsWith('/api/')) {
-    const baseElement = document.querySelector('base');
-    const rawHref = baseElement?.getAttribute('href') || '/';
-    if (rawHref !== '/') {
-      if (rawHref !== './') {
-        // baseHref ist z.B. "/app-proxy/portal-app-portalwissensdatenbank/8080/"
-        url = rawHref + url.substring(1); // "/api/foo" -> "{baseHref}api/foo"
-      } else {
-        // sub_filter hat base href nicht umgeschrieben - Proxy-Pfad aus Location ableiten
-        const match = window.location.pathname.match(/^(\/app-proxy\/[^/]+\/\d+\/)/);
-        if (match) {
-          url = match[1] + url.substring(1); // "/api/foo" -> "/app-proxy/.../api/foo"
-        }
-      }
+  // /api/... URLs auf app-proxy umschreiben wenn wir ueber den Proxy laufen
+  if (url.startsWith('/api/')) {
+    const proxyPrefix = getProxyPrefix();
+    if (proxyPrefix) {
+      url = proxyPrefix + url.substring(1); // "/api/foo" -> "/app-proxy/.../api/foo"
     }
   }
 
@@ -43,3 +34,27 @@ export const portalAuthInterceptor: HttpInterceptorFn = (req, next) => {
   }
   return next(req);
 };
+
+/**
+ * Ermittelt den Proxy-Prefix aus base href oder window.location.
+ * Funktioniert sowohl im iframe als auch bei direktem Proxy-URL-Zugriff.
+ */
+function getProxyPrefix(): string | null {
+  // 1. Versuch: base href wurde von nginx sub_filter umgeschrieben
+  const baseElement = document.querySelector('base');
+  const rawHref = baseElement?.getAttribute('href') || '/';
+  if (rawHref !== '/' && rawHref !== './') {
+    // baseHref ist z.B. "/app-proxy/portal-app-portalwissensdatenbank/8080/"
+    if (rawHref.includes('/app-proxy/')) {
+      return rawHref;
+    }
+  }
+
+  // 2. Versuch: Proxy-Pfad aus der aktuellen URL ableiten
+  const match = window.location.pathname.match(/^(\/app-proxy\/[^/]+\/\d+\/)/);
+  if (match) {
+    return match[1];
+  }
+
+  return null;
+}
