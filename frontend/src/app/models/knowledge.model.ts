@@ -40,6 +40,22 @@ export interface SuggestionResponse {
   auditLogId: number;
 }
 
+export interface DocumentSuggestionDto {
+  id: number;
+  fileName: string;
+  fileContentType: string | null;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'ERROR';
+  errorMessage: string | null;
+  empfehlungen: string[];
+  llmModel: string | null;
+  tokenCount: number;
+  quellen: UsedSource[];
+  auditLogId: number | null;
+  modelConfigId: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
 export interface Seg4ImportResult {
   id: number;
   title: string;
