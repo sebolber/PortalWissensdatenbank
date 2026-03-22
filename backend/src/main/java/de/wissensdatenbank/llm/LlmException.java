@@ -1,0 +1,15 @@
+package de.wissensdatenbank.llm;
+
+/**
+ * Wird bei LLM-Aufruffehlern geworfen.
+ */
+public class LlmException extends RuntimeException {
+
+    public LlmException(String message) {
+        super(message);
+    }
+
+    public LlmException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
