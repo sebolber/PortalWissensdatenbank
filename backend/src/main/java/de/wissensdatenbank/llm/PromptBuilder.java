@@ -15,7 +15,7 @@ import java.util.List;
 @Component
 public class PromptBuilder {
 
-    static final String RECOMMENDATION_DELIMITER = "===EMPFEHLUNG===";
+    public static final String RECOMMENDATION_DELIMITER = "===EMPFEHLUNG===";
 
     private static final String SYSTEM_PROMPT = """
             Du bist ein medizinischer Kodierexperte fuer das deutsche DRG-System.
