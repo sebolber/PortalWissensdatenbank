@@ -34,8 +34,8 @@ public class KnowledgeSearchService {
             "nicht", "noch", "nur", "dass", "sich", "sie", "ich", "wir", "man", "kann", "soll",
             "dann", "wenn", "ueber", "unter", "zum", "zur", "vom", "durch", "ohne", "gegen",
             "bereits", "sehr", "mehr", "keine", "kein", "alle", "jede", "andere", "dieser",
-            "einem", "dieses", "diese", "welche", "welcher", "welches", "sowie", "bzw",
-            "wurde", "worden", "werden", "hatte", "hatten", "konnte", "konnten", "sollte",
+            "dieses", "diese", "welche", "welcher", "welches", "sowie", "bzw",
+            "worden", "hatte", "hatten", "konnte", "konnten", "sollte",
             "wie", "was", "wer", "wann", "warum", "hier", "dort", "dazu"
     );
 
