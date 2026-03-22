@@ -65,9 +65,9 @@ public class SuggestionService {
                 request.dokumentText(), candidates
         );
 
-        // 3. LLM aufrufen
+        // 3. LLM aufrufen (8192 Tokens fuer mehrere Empfehlungen)
         LlmRequest llmRequest = new LlmRequest(tenantId, jwtToken, request.modelConfigId(),
-                systemPrompt, userPrompt);
+                systemPrompt, userPrompt, 8192);
         LlmResponse llmResponse = llmClient.chat(llmRequest);
 
         // 4. Audit loggen

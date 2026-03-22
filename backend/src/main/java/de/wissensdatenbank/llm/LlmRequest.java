@@ -8,6 +8,11 @@ public record LlmRequest(
         String jwtToken,
         String configId,
         String systemPrompt,
-        String userPrompt
+        String userPrompt,
+        Integer maxTokens
 ) {
+    public LlmRequest(String tenantId, String jwtToken, String configId,
+                      String systemPrompt, String userPrompt) {
+        this(tenantId, jwtToken, configId, systemPrompt, userPrompt, null);
+    }
 }

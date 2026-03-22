@@ -41,6 +41,9 @@ public class PortalCoreLlmClient implements LlmClient {
         if (request.configId() != null && !request.configId().isBlank()) {
             body.put("configId", request.configId());
         }
+        if (request.maxTokens() != null) {
+            body.put("maxTokens", request.maxTokens());
+        }
 
         Map<String, Object> response;
         try {
