@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -75,7 +76,10 @@ public class SuggestionService {
                 systemPrompt, userPrompt, llmResponse, candidates
         );
 
-        // 5. Response bauen
+        // 5. Response bauen: LLM-Antwort am Delimiter in einzelne Empfehlungen aufteilen
+        List<String> empfehlungen = splitEmpfehlungen(llmResponse.content());
+        log.info("LLM lieferte {} Empfehlung(en) fuer Mandant {}", empfehlungen.size(), tenantId);
+
         List<SuggestionResponse.UsedSource> quellen = candidates.stream()
                 .map(c -> new SuggestionResponse.UsedSource(
                         c.getItem().getId(),
@@ -86,11 +90,21 @@ public class SuggestionService {
                 .toList();
 
         return new SuggestionResponse(
-                llmResponse.content(),
+                empfehlungen,
                 llmResponse.model(),
                 llmResponse.tokenCount(),
                 quellen,
                 auditLog.getId()
         );
+    }
+
+    List<String> splitEmpfehlungen(String llmContent) {
+        if (llmContent == null || llmContent.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(llmContent.split(PromptBuilder.RECOMMENDATION_DELIMITER))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 }

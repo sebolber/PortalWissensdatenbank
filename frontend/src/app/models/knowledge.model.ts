@@ -33,7 +33,7 @@ export interface UsedSource {
 }
 
 export interface SuggestionResponse {
-  empfehlung: string;
+  empfehlungen: string[];
   llmModel: string;
   tokenCount: number;
   quellen: UsedSource[];

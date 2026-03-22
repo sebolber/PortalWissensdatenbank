@@ -48,7 +48,8 @@ class SuggestionServiceTest {
         when(searchService.search(any())).thenReturn(List.of(candidate));
         when(promptBuilder.buildSystemPrompt()).thenReturn("system");
         when(promptBuilder.buildUserPrompt(any(), any(), any(), any())).thenReturn("user");
-        when(llmClient.chat(any())).thenReturn(new LlmResponse("Empfehlung Text", "gpt-4", "cfg1", 500));
+        when(llmClient.chat(any())).thenReturn(new LlmResponse(
+                "Erste Empfehlung\n===EMPFEHLUNG===\nZweite Empfehlung", "gpt-4", "cfg1", 500));
 
         SuggestionAuditLog auditLog = new SuggestionAuditLog();
         auditLog.setId(99L);
@@ -60,7 +61,9 @@ class SuggestionServiceTest {
         SuggestionResponse response = suggestionService.generateSuggestion("t1", "u1", "jwt", request);
 
         // then
-        assertEquals("Empfehlung Text", response.empfehlung());
+        assertEquals(2, response.empfehlungen().size());
+        assertEquals("Erste Empfehlung", response.empfehlungen().get(0));
+        assertEquals("Zweite Empfehlung", response.empfehlungen().get(1));
         assertEquals("gpt-4", response.llmModel());
         assertEquals(500, response.tokenCount());
         assertEquals(99L, response.auditLogId());

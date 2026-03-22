@@ -60,9 +60,13 @@ import { SuggestionResponse } from '../../models/knowledge.model';
 
     <!-- Ergebnis -->
     <div *ngIf="response()" class="result-section">
-      <div class="card suggestion-card">
-        <h3>Kodierempfehlung</h3>
-        <div class="suggestion-content" [innerHTML]="formatResponse(response()!.empfehlung)"></div>
+      <div class="card suggestion-card" *ngFor="let emp of response()!.empfehlungen; let i = index"
+           [style.margin-top]="i > 0 ? '1rem' : '0'">
+        <h3>Kodierempfehlung {{ response()!.empfehlungen.length > 1 ? (i + 1) : '' }}</h3>
+        <div class="suggestion-content" [innerHTML]="formatResponse(emp)"></div>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
         <div class="meta-info">
           <span>Modell: {{ response()!.llmModel }}</span>
           <span>Tokens: {{ response()!.tokenCount }}</span>
