@@ -469,17 +469,11 @@ export class DokumentKodierungComponent implements OnInit, OnDestroy {
   }
 
   downloadPdf(doc: DocumentSuggestionDto): void {
-    this.chatApi.downloadResultPdf(doc.id).subscribe({
-      next: blob => this.triggerDownload(blob, 'kodierempfehlung-' + doc.id + '.pdf'),
-      error: err => alert('PDF-Download fehlgeschlagen: ' + (err.error?.error || err.message))
-    });
+    this.directDownload('/api/document-suggestions/' + doc.id + '/pdf', 'kodierempfehlung-' + doc.id + '.pdf');
   }
 
   downloadAnnotatedPdf(doc: DocumentSuggestionDto): void {
-    this.chatApi.downloadAnnotatedPdf(doc.id).subscribe({
-      next: blob => this.triggerDownload(blob, 'annotiert-' + doc.id + '.pdf'),
-      error: err => alert('PDF-Download fehlgeschlagen: ' + (err.error?.error || err.message))
-    });
+    this.directDownload('/api/document-suggestions/' + doc.id + '/annotated-pdf', 'annotiert-' + doc.id + '.pdf');
   }
 
   createDocument(doc: DocumentSuggestionDto): void {
@@ -498,17 +492,33 @@ export class DokumentKodierungComponent implements OnInit, OnDestroy {
     });
   }
 
-  private triggerDownload(blob: Blob, filename: string): void {
-    const url = window.URL.createObjectURL(blob);
+  /**
+   * Direkter Download ueber Browser-Navigation statt Blob + a.click().
+   * Safari blockiert programmatische Downloads in async Callbacks im iframe.
+   * Stattdessen: temporaeres Cookie setzen fuer Auth, dann direkt navigieren.
+   */
+  private directDownload(apiPath: string, filename: string): void {
+    // Auth-Token als temporaeres Cookie setzen (Backend unterstuetzt portal_token Cookie)
+    const token = localStorage.getItem('portal_token');
+    if (token) {
+      document.cookie = 'portal_token=' + token + '; path=/; max-age=30; SameSite=Lax';
+    }
+
+    // URL mit Proxy-Prefix aufbauen
+    let downloadUrl = apiPath;
+    const match = window.location.pathname.match(/^(\/app-proxy\/[^/]+\/\d+\/)/);
+    if (match) {
+      downloadUrl = match[1] + apiPath.substring(1);
+    }
+
+    // Direkter Browser-Download (funktioniert in Safari + iframe)
     const a = document.createElement('a');
-    a.href = url;
+    a.href = downloadUrl;
     a.download = filename;
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    // URL erst nach kurzer Verzoegerung freigeben damit Download starten kann
-    setTimeout(() => window.URL.revokeObjectURL(url), 5000);
   }
 
   formatText(text: string): string {
