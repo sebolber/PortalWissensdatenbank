@@ -11,6 +11,7 @@ import de.wissensdatenbank.retrieval.SearchQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,6 +20,7 @@ import java.util.List;
  * Dokument analysieren → Wissen suchen → Prompt bauen → LLM aufrufen → Audit loggen.
  */
 @Service
+@Transactional(readOnly = true)
 public class SuggestionService {
 
     private static final Logger log = LoggerFactory.getLogger(SuggestionService.class);
@@ -41,6 +43,7 @@ public class SuggestionService {
     /**
      * Generiert eine strukturierte Kodierempfehlung.
      */
+    @Transactional
     public SuggestionResponse generateSuggestion(String tenantId, String userId,
                                                    String jwtToken, SuggestionRequest request) {
         // 1. Retrieval: passende Wissensobjekte suchen
