@@ -8,76 +8,69 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Erzeugt PDF-Dokumente aus Kodierempfehlungen.
+ * Nutzt ausschliesslich PDFBox Standard14Fonts (WinAnsiEncoding).
  */
 @Service
 public class SuggestionPdfService {
 
+    private static final Logger log = LoggerFactory.getLogger(SuggestionPdfService.class);
+
     private static final float MARGIN = 50;
+    private static final float FONT_SIZE = 10;
+    private static final float HEADING_SIZE = 13;
     private static final float LINE_HEIGHT = 14;
-    private static final float HEADING_HEIGHT = 20;
+    private static final float HEADING_GAP = 20;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
-    /**
-     * Erzeugt ein PDF mit den Kodierempfehlungen.
-     */
     public byte[] generateResultPdf(DocumentSuggestion ds, List<String> empfehlungen,
                                      List<SuggestionResponse.UsedSource> quellen) throws IOException {
         try (PDDocument doc = new PDDocument()) {
-            PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
-            PDType1Font fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
-            float pageWidth = PDRectangle.A4.getWidth();
-            float usableWidth = pageWidth - 2 * MARGIN;
+            PdfWriter w = new PdfWriter(doc);
 
-            ContentWriter writer = new ContentWriter(doc, fontRegular, fontBold, usableWidth);
-
-            // Titel
-            writer.writeHeading("KI-Kodierempfehlung: " + ds.getFileName());
-            writer.writeLine("");
-            writer.writeLine("Erstellt: " + (ds.getCreatedAt() != null ? ds.getCreatedAt().format(DATE_FMT) : "-"));
+            w.heading("KI-Kodierempfehlung: " + ds.getFileName());
+            w.line("");
+            w.line("Erstellt: " + (ds.getCreatedAt() != null ? ds.getCreatedAt().format(DATE_FMT) : "-"));
             if (ds.getLlmModel() != null) {
-                writer.writeLine("Modell: " + ds.getLlmModel() + "  |  Tokens: " + ds.getTokenCount());
+                w.line("Modell: " + ds.getLlmModel() + "  |  Tokens: " + ds.getTokenCount());
             }
-            writer.writeLine("");
+            w.line("");
 
-            // Empfehlungen
             for (int i = 0; i < empfehlungen.size(); i++) {
-                writer.writeHeading("Empfehlung " + (i + 1));
+                w.heading("Empfehlung " + (i + 1));
                 for (String line : empfehlungen.get(i).split("\n")) {
-                    writer.writeLine(line);
+                    w.line(line);
                 }
-                writer.writeLine("");
+                w.line("");
             }
 
-            // Quellen
             if (quellen != null && !quellen.isEmpty()) {
-                writer.writeHeading("Verwendete Quellen");
+                w.heading("Verwendete Quellen");
                 for (SuggestionResponse.UsedSource q : quellen) {
-                    writer.writeLine("- " + q.title() + " [" + q.bindingLevel() + "] " + q.matchReason());
+                    w.line("- " + q.title() + " [" + q.bindingLevel() + "] " + q.matchReason());
                 }
             }
 
-            writer.close();
-
+            w.finish();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             doc.save(baos);
             return baos.toByteArray();
         }
     }
 
-    /**
-     * Erzeugt ein annotiertes Dokument-PDF mit gelb markierten relevanten Passagen.
-     */
     public byte[] generateAnnotatedPdf(DocumentSuggestion ds, List<String> empfehlungen,
                                         List<SuggestionResponse.UsedSource> quellen) throws IOException {
         String extractedText = ds.getExtractedText();
@@ -86,211 +79,199 @@ public class SuggestionPdfService {
         }
 
         try (PDDocument doc = new PDDocument()) {
-            PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
-            PDType1Font fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
-            float pageWidth = PDRectangle.A4.getWidth();
-            float usableWidth = pageWidth - 2 * MARGIN;
+            PdfWriter w = new PdfWriter(doc);
 
-            ContentWriter writer = new ContentWriter(doc, fontRegular, fontBold, usableWidth);
+            w.heading("Annotiertes Dokument: " + ds.getFileName());
+            w.line("Relevante Passagen sind gelb markiert mit Kodierempfehlung-Referenz.");
+            w.line("");
 
-            writer.writeHeading("Annotiertes Dokument: " + ds.getFileName());
-            writer.writeLine("Relevante Passagen sind gelb markiert mit Kodierempfehlung-Referenz.");
-            writer.writeLine("");
+            Set<String> highlightedLines = buildHighlightedLines(extractedText, empfehlungen);
 
-            // Suchbegriffe aus Empfehlungen extrahieren fuer Highlighting
-            List<HighlightEntry> highlights = buildHighlights(extractedText, empfehlungen);
-
-            // Text zeilenweise ausgeben mit Markierungen
-            String[] lines = extractedText.split("\n");
-            for (String line : lines) {
+            for (String line : extractedText.split("\n")) {
                 String trimmed = line.trim();
                 if (trimmed.isEmpty()) {
-                    writer.writeLine("");
+                    w.line("");
                     continue;
                 }
-                // Pruefen ob diese Zeile in einer markierten Passage liegt
-                String annotation = findAnnotation(line, highlights);
+                String annotation = highlightedLines.contains(trimmed)
+                        ? findAnnotation(trimmed, extractedText, empfehlungen) : null;
                 if (annotation != null) {
-                    writer.writeHighlightedLine(trimmed, annotation);
+                    w.highlightedLine(trimmed, annotation);
                 } else {
-                    writer.writeLine(trimmed);
+                    w.line(trimmed);
                 }
             }
 
-            // Anhang: Empfehlungen
-            writer.writeLine("");
-            writer.writeHeading("Kodierempfehlungen (Anhang)");
+            w.line("");
+            w.heading("Kodierempfehlungen (Anhang)");
             for (int i = 0; i < empfehlungen.size(); i++) {
-                writer.writeHeading("Empfehlung " + (i + 1));
+                w.heading("Empfehlung " + (i + 1));
                 for (String l : empfehlungen.get(i).split("\n")) {
-                    writer.writeLine(l);
+                    w.line(l);
                 }
-                writer.writeLine("");
+                w.line("");
             }
 
-            writer.close();
-
+            w.finish();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             doc.save(baos);
             return baos.toByteArray();
         }
     }
 
-    private static class HighlightEntry {
-        final String passage;
-        final String annotation;
-        HighlightEntry(String passage, String annotation) {
-            this.passage = passage;
-            this.annotation = annotation;
-        }
-    }
+    private Set<String> buildHighlightedLines(String fullText, List<String> empfehlungen) {
+        Set<String> matched = new LinkedHashSet<>();
+        String fullLower = fullText.toLowerCase();
+        String[] textLines = fullText.split("\n");
 
-    private List<HighlightEntry> buildHighlights(String fullText, List<String> empfehlungen) {
-        List<HighlightEntry> highlights = new ArrayList<>();
-        String fullTextLower = fullText.toLowerCase();
-
-        for (int i = 0; i < empfehlungen.size(); i++) {
-            String empfehlung = empfehlungen.get(i);
-            // Signifikante Woerter aus der Empfehlung extrahieren (>= 5 Zeichen, keine Stoppwoerter)
-            String[] words = empfehlung.split("\\s+");
-            for (String word : words) {
-                String clean = word.replaceAll("[^a-zA-ZäöüÄÖÜß]", "").toLowerCase();
-                if (clean.length() >= 6 && fullTextLower.contains(clean)) {
-                    // Finde Zeilen im Originaltext die dieses Wort enthalten
-                    for (String line : fullText.split("\n")) {
-                        if (line.toLowerCase().contains(clean) && line.trim().length() > 10) {
-                            highlights.add(new HighlightEntry(line.trim(),
-                                    "Empfehlung " + (i + 1)));
+        for (String empfehlung : empfehlungen) {
+            for (String word : empfehlung.split("\\s+")) {
+                String clean = word.replaceAll("[^a-zA-ZaeoeueAeOeUess]", "").toLowerCase();
+                if (clean.length() >= 6 && fullLower.contains(clean)) {
+                    for (String tl : textLines) {
+                        String trimmed = tl.trim();
+                        if (trimmed.length() > 10 && trimmed.toLowerCase().contains(clean)) {
+                            matched.add(trimmed);
                         }
                     }
                 }
             }
         }
-        return highlights;
+        return matched;
     }
 
-    private String findAnnotation(String line, List<HighlightEntry> highlights) {
-        String trimmed = line.trim();
-        for (HighlightEntry h : highlights) {
-            if (h.passage.equals(trimmed)) {
-                return h.annotation;
+    private String findAnnotation(String line, String fullText, List<String> empfehlungen) {
+        String lineLower = line.toLowerCase();
+        for (int i = 0; i < empfehlungen.size(); i++) {
+            for (String word : empfehlungen.get(i).split("\\s+")) {
+                String clean = word.replaceAll("[^a-zA-ZaeoeueAeOeUess]", "").toLowerCase();
+                if (clean.length() >= 6 && lineLower.contains(clean)) {
+                    return "Empfehlung " + (i + 1);
+                }
             }
         }
-        return null;
+        return "Empfehlung";
     }
 
     /**
-     * Hilfsklasse fuer seitenuebergreifendes PDF-Schreiben.
+     * Robuster PDF-Writer ohne gemischten Text/Grafik-Zustand.
+     * Jede Zeile wird als eigener beginText/endText-Block geschrieben.
      */
-    private static class ContentWriter {
+    private static class PdfWriter {
         private final PDDocument doc;
         private final PDType1Font fontRegular;
         private final PDType1Font fontBold;
         private final float usableWidth;
-        private PDPageContentStream stream;
-        private float yPos;
-        private static final float FONT_SIZE = 10;
-        private static final float HEADING_SIZE = 13;
+        private PDPageContentStream cs;
+        private float y;
 
-        ContentWriter(PDDocument doc, PDType1Font fontRegular, PDType1Font fontBold, float usableWidth) throws IOException {
+        PdfWriter(PDDocument doc) throws IOException {
             this.doc = doc;
-            this.fontRegular = fontRegular;
-            this.fontBold = fontBold;
-            this.usableWidth = usableWidth;
+            this.fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+            this.fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+            this.usableWidth = PDRectangle.A4.getWidth() - 2 * MARGIN;
             newPage();
         }
 
         private void newPage() throws IOException {
-            if (stream != null) {
-                stream.endText();
-                stream.close();
-            }
+            if (cs != null) cs.close();
             PDPage page = new PDPage(PDRectangle.A4);
             doc.addPage(page);
-            stream = new PDPageContentStream(doc, page);
-            yPos = PDRectangle.A4.getHeight() - MARGIN;
-            stream.beginText();
-            stream.setFont(fontRegular, FONT_SIZE);
-            stream.newLineAtOffset(MARGIN, yPos);
+            cs = new PDPageContentStream(doc, page);
+            y = PDRectangle.A4.getHeight() - MARGIN;
         }
 
         private void ensureSpace(float needed) throws IOException {
-            if (yPos - needed < MARGIN) {
+            if (y - needed < MARGIN) {
                 newPage();
             }
         }
 
-        void writeHeading(String text) throws IOException {
-            ensureSpace(HEADING_HEIGHT + LINE_HEIGHT);
-            stream.setFont(fontBold, HEADING_SIZE);
-            stream.newLineAtOffset(0, -HEADING_HEIGHT);
-            yPos -= HEADING_HEIGHT;
-            // Truncate heading if too long
-            String truncated = truncateToFit(text, fontBold, HEADING_SIZE);
-            stream.showText(truncated);
-            stream.setFont(fontRegular, FONT_SIZE);
+        void heading(String text) throws IOException {
+            ensureSpace(HEADING_GAP + LINE_HEIGHT);
+            y -= HEADING_GAP;
+            String safe = sanitize(text);
+            cs.beginText();
+            cs.setFont(fontBold, HEADING_SIZE);
+            cs.newLineAtOffset(MARGIN, y);
+            cs.showText(safe);
+            cs.endText();
         }
 
-        void writeLine(String text) throws IOException {
-            ensureSpace(LINE_HEIGHT);
-            stream.newLineAtOffset(0, -LINE_HEIGHT);
-            yPos -= LINE_HEIGHT;
-            if (text.isEmpty()) return;
-            // Wortumbruch
-            List<String> wrapped = wrapText(text, fontRegular, FONT_SIZE);
-            stream.showText(wrapped.get(0));
-            for (int i = 1; i < wrapped.size(); i++) {
+        void line(String text) throws IOException {
+            if (text == null || text.isEmpty()) {
+                y -= LINE_HEIGHT;
+                return;
+            }
+            String safe = sanitize(text);
+            List<String> wrapped = wrapText(safe, fontRegular, FONT_SIZE);
+            for (String part : wrapped) {
                 ensureSpace(LINE_HEIGHT);
-                stream.newLineAtOffset(0, -LINE_HEIGHT);
-                yPos -= LINE_HEIGHT;
-                stream.showText(wrapped.get(i));
+                y -= LINE_HEIGHT;
+                cs.beginText();
+                cs.setFont(fontRegular, FONT_SIZE);
+                cs.newLineAtOffset(MARGIN, y);
+                cs.showText(part);
+                cs.endText();
             }
         }
 
-        void writeHighlightedLine(String text, String annotation) throws IOException {
-            ensureSpace(LINE_HEIGHT * 2);
+        void highlightedLine(String text, String annotation) throws IOException {
+            String safe = sanitize(text);
+            List<String> wrapped = wrapText(safe, fontRegular, FONT_SIZE);
 
-            // Gelbe Hintergrundfarbe
-            float textWidth = Math.min(fontRegular.getStringWidth(sanitize(text)) / 1000 * FONT_SIZE, usableWidth);
-            stream.endText();
-            stream.setNonStrokingColor(1.0f, 1.0f, 0.6f); // Gelb
-            stream.addRect(MARGIN - 2, yPos - LINE_HEIGHT - 2, textWidth + 4, LINE_HEIGHT + 2);
-            stream.fill();
-            stream.setNonStrokingColor(0, 0, 0); // Schwarz
-            stream.beginText();
-            stream.setFont(fontRegular, FONT_SIZE);
-            stream.newLineAtOffset(MARGIN, yPos - LINE_HEIGHT);
-            // Position korrigieren - da wir endText/beginText gemacht haben
-            yPos -= LINE_HEIGHT;
+            for (String part : wrapped) {
+                ensureSpace(LINE_HEIGHT);
+                y -= LINE_HEIGHT;
 
-            String truncated = truncateToFit(text, fontRegular, FONT_SIZE);
-            stream.showText(truncated);
+                // Gelber Hintergrund
+                float tw;
+                try {
+                    tw = Math.min(fontRegular.getStringWidth(part) / 1000f * FONT_SIZE, usableWidth);
+                } catch (Exception e) {
+                    tw = usableWidth;
+                }
+                cs.setNonStrokingColor(1.0f, 1.0f, 0.6f);
+                cs.addRect(MARGIN - 2, y - 2, tw + 4, LINE_HEIGHT);
+                cs.fill();
+
+                // Text schwarz
+                cs.setNonStrokingColor(0f, 0f, 0f);
+                cs.beginText();
+                cs.setFont(fontRegular, FONT_SIZE);
+                cs.newLineAtOffset(MARGIN, y);
+                cs.showText(part);
+                cs.endText();
+            }
 
             // Annotation in Blau
-            stream.setFont(fontBold, 8);
-            stream.newLineAtOffset(0, -11);
-            yPos -= 11;
-            stream.setNonStrokingColor(0.0f, 0.43f, 0.78f); // Portal-Blau
-            stream.showText(">> " + annotation);
-            stream.setNonStrokingColor(0, 0, 0);
-            stream.setFont(fontRegular, FONT_SIZE);
+            ensureSpace(LINE_HEIGHT);
+            y -= 11;
+            cs.setNonStrokingColor(0f, 0.43f, 0.78f);
+            cs.beginText();
+            cs.setFont(fontBold, 8);
+            cs.newLineAtOffset(MARGIN + 4, y);
+            cs.showText(">> " + sanitize(annotation));
+            cs.endText();
+            cs.setNonStrokingColor(0f, 0f, 0f);
         }
 
-        void close() throws IOException {
-            if (stream != null) {
-                stream.endText();
-                stream.close();
-            }
+        void finish() throws IOException {
+            if (cs != null) cs.close();
         }
 
-        private List<String> wrapText(String text, PDType1Font font, float fontSize) throws IOException {
+        private List<String> wrapText(String text, PDType1Font font, float fontSize) {
             List<String> lines = new ArrayList<>();
-            String sanitized = sanitize(text);
-            String[] words = sanitized.split("\\s+");
+            String[] words = text.split("\\s+");
             StringBuilder current = new StringBuilder();
             for (String word : words) {
                 String test = current.isEmpty() ? word : current + " " + word;
-                float width = font.getStringWidth(test) / 1000 * fontSize;
+                float width;
+                try {
+                    width = font.getStringWidth(test) / 1000f * fontSize;
+                } catch (Exception e) {
+                    width = test.length() * 5f; // Fallback
+                }
                 if (width > usableWidth && !current.isEmpty()) {
                     lines.add(current.toString());
                     current = new StringBuilder(word);
@@ -303,21 +284,38 @@ public class SuggestionPdfService {
             return lines;
         }
 
-        private String truncateToFit(String text, PDType1Font font, float fontSize) throws IOException {
-            String sanitized = sanitize(text);
-            float width = font.getStringWidth(sanitized) / 1000 * fontSize;
-            if (width <= usableWidth) return sanitized;
-            while (sanitized.length() > 3 && font.getStringWidth(sanitized + "...") / 1000 * fontSize > usableWidth) {
-                sanitized = sanitized.substring(0, sanitized.length() - 1);
+        /**
+         * Ersetzt Zeichen die nicht in WinAnsiEncoding darstellbar sind.
+         */
+        private static String sanitize(String text) {
+            if (text == null) return "";
+            StringBuilder sb = new StringBuilder(text.length());
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                if (c == '\t') { sb.append("    "); continue; }
+                if (c == '\r') continue;
+                // WinAnsiEncoding: 0x20-0x7E (ASCII printable) + 0xA0-0xFF (Latin supplement)
+                // Plus some Windows-1252 extras in 0x80-0x9F range
+                if (c >= 0x20 && c <= 0x7E) { sb.append(c); continue; }
+                if (c >= 0xA0 && c <= 0xFF) { sb.append(c); continue; }
+                // Windows-1252 mapped characters
+                switch (c) {
+                    case '\u2013': sb.append('-'); break;  // en-dash
+                    case '\u2014': sb.append('-'); break;  // em-dash
+                    case '\u2018': case '\u2019': sb.append('\''); break; // smart quotes
+                    case '\u201C': case '\u201D': sb.append('"'); break;  // smart double quotes
+                    case '\u2022': sb.append('*'); break;  // bullet
+                    case '\u2026': sb.append("..."); break; // ellipsis
+                    case '\u20AC': sb.append("EUR"); break; // euro sign
+                    default:
+                        if (c > 0xFF) {
+                            sb.append('?');
+                        } else {
+                            sb.append(c);
+                        }
+                }
             }
-            return sanitized + "...";
-        }
-
-        private String sanitize(String text) {
-            // PDFBox Standard14Fonts können keine speziellen Unicode-Zeichen
-            return text.replace("\t", "    ")
-                       .replace("\r", "")
-                       .replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "");
+            return sb.toString();
         }
     }
 }
