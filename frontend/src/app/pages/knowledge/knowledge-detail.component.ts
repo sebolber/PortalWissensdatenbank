@@ -62,12 +62,15 @@ export class KnowledgeDetailComponent implements OnInit {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.api.getById(id).subscribe({
       next: item => { this.item.set(item); this.loading.set(false); },
-      error: () => this.loading.set(false)
+      error: (err) => { console.error('Fehler beim Laden des Wissensobjekts', err); this.loading.set(false); }
     });
   }
 
   deleteItem(): void {
     if (!confirm('Wissensobjekt wirklich loeschen?')) return;
-    this.api.delete(this.item()!.id).subscribe(() => this.router.navigate(['/wissen']));
+    this.api.delete(this.item()!.id).subscribe({
+      next: () => this.router.navigate(['/wissen']),
+      error: (err) => console.error('Fehler beim Loeschen des Wissensobjekts', err)
+    });
   }
 }

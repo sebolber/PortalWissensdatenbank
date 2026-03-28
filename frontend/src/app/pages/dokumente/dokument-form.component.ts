@@ -91,19 +91,28 @@ export class DokumentFormComponent implements OnInit {
   selectedTagIds = new Set<string>();
 
   ngOnInit(): void {
-    this.dokumentService.getCategories().subscribe(c => this.categories.set(c));
-    this.dokumentService.getTags().subscribe(t => this.availableTags.set(t));
+    this.dokumentService.getCategories().subscribe({
+      next: c => this.categories.set(c),
+      error: (err) => console.error('Fehler beim Laden der Kategorien', err)
+    });
+    this.dokumentService.getTags().subscribe({
+      next: t => this.availableTags.set(t),
+      error: (err) => console.error('Fehler beim Laden der Tags', err)
+    });
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isEdit = true;
       this.documentId = id;
-      this.dokumentService.getById(id).subscribe(doc => {
-        this.title = doc.title;
-        this.summary = doc.summary || '';
-        this.content = doc.content;
-        this.categoryId = doc.categoryId || '';
-        doc.tags.forEach(t => this.selectedTagIds.add(t.id));
+      this.dokumentService.getById(id).subscribe({
+        next: doc => {
+          this.title = doc.title;
+          this.summary = doc.summary || '';
+          this.content = doc.content;
+          this.categoryId = doc.categoryId || '';
+          doc.tags.forEach(t => this.selectedTagIds.add(t.id));
+        },
+        error: (err) => console.error('Fehler beim Laden des Dokuments', err)
       });
     }
   }
@@ -134,7 +143,7 @@ export class DokumentFormComponent implements OnInit {
 
     request.subscribe({
       next: (doc) => this.router.navigate(['/dokumente', doc.id]),
-      error: () => this.saving.set(false)
+      error: (err) => { console.error('Fehler beim Speichern des Dokuments', err); this.saving.set(false); }
     });
   }
 }

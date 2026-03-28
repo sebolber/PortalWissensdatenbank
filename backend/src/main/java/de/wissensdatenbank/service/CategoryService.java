@@ -10,11 +10,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class CategoryService {
 
     private static final Logger log = LoggerFactory.getLogger(CategoryService.class);
@@ -34,6 +37,7 @@ public class CategoryService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public CategoryDto create(String name, String description, String parentId) {
         String tenantId = securityHelper.getCurrentTenantId();
 
@@ -53,6 +57,7 @@ public class CategoryService {
         return toDto(saved);
     }
 
+    @Transactional
     public CategoryDto update(String id, String name, String description) {
         String tenantId = securityHelper.getCurrentTenantId();
         Category cat = categoryRepository.findByIdAndTenantId(id, tenantId)
@@ -65,6 +70,7 @@ public class CategoryService {
         return toDto(saved);
     }
 
+    @Transactional
     public void delete(String id) {
         String tenantId = securityHelper.getCurrentTenantId();
         Category cat = categoryRepository.findByIdAndTenantId(id, tenantId)

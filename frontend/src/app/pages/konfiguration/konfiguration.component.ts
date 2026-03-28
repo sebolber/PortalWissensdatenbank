@@ -68,6 +68,9 @@ export class KonfigurationComponent implements OnInit {
   readonly statistik = signal<StatistikDto | null>(null);
 
   ngOnInit(): void {
-    this.dokumentService.getStatistik().subscribe(s => this.statistik.set(s));
+    this.dokumentService.getStatistik().subscribe({
+      next: s => this.statistik.set(s),
+      error: (err) => console.error('Fehler beim Laden der Statistik', err)
+    });
   }
 }

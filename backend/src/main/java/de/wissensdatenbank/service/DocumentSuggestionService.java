@@ -30,6 +30,7 @@ import java.util.List;
  * Dateien werden hochgeladen, Text extrahiert und asynchron kodiert.
  */
 @Service
+@Transactional(readOnly = true)
 public class DocumentSuggestionService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentSuggestionService.class);
