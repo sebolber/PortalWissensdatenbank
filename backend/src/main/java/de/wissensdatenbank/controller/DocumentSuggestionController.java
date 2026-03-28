@@ -4,6 +4,7 @@ import de.wissensdatenbank.config.SecurityHelper;
 import de.wissensdatenbank.dto.DocumentDto;
 import de.wissensdatenbank.dto.DocumentSuggestionDto;
 import de.wissensdatenbank.service.DocumentSuggestionService;
+import de.wissensdatenbank.service.PermissionService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,11 +23,14 @@ public class DocumentSuggestionController {
 
     private final DocumentSuggestionService service;
     private final SecurityHelper securityHelper;
+    private final PermissionService permissionService;
 
     public DocumentSuggestionController(DocumentSuggestionService service,
-                                         SecurityHelper securityHelper) {
+                                         SecurityHelper securityHelper,
+                                         PermissionService permissionService) {
         this.service = service;
         this.securityHelper = securityHelper;
+        this.permissionService = permissionService;
     }
 
     /**
@@ -37,6 +41,7 @@ public class DocumentSuggestionController {
     public ResponseEntity<DocumentSuggestionDto> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "modelConfigId", required = false) String modelConfigId) throws IOException {
+        permissionService.requireSchreiben();
         String tenantId = securityHelper.getCurrentTenantId();
         String userId = securityHelper.getCurrentUserId();
         DocumentSuggestionDto dto = service.upload(tenantId, userId, file, modelConfigId);
@@ -49,6 +54,7 @@ public class DocumentSuggestionController {
      */
     @GetMapping
     public ResponseEntity<List<DocumentSuggestionDto>> list() {
+        permissionService.requireLesen();
         String tenantId = securityHelper.getCurrentTenantId();
         return ResponseEntity.ok(service.list(tenantId));
     }
@@ -59,6 +65,7 @@ public class DocumentSuggestionController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<DocumentSuggestionDto> getById(@PathVariable Long id) {
+        permissionService.requireLesen();
         String tenantId = securityHelper.getCurrentTenantId();
         return ResponseEntity.ok(service.getById(tenantId, id));
     }
@@ -69,6 +76,7 @@ public class DocumentSuggestionController {
      */
     @PostMapping("/{id}/start")
     public ResponseEntity<Void> start(@PathVariable Long id) {
+        permissionService.requireSchreiben();
         String tenantId = securityHelper.getCurrentTenantId();
         String userId = securityHelper.getCurrentUserId();
         String jwtToken = securityHelper.getCurrentToken();
@@ -82,6 +90,7 @@ public class DocumentSuggestionController {
      */
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> downloadResultPdf(@PathVariable Long id) throws IOException {
+        permissionService.requireLesen();
         String tenantId = securityHelper.getCurrentTenantId();
         byte[] pdf = service.generateResultPdf(tenantId, id);
         return ResponseEntity.ok()
@@ -96,6 +105,7 @@ public class DocumentSuggestionController {
      */
     @GetMapping("/{id}/annotated-pdf")
     public ResponseEntity<byte[]> downloadAnnotatedPdf(@PathVariable Long id) {
+        permissionService.requireLesen();
         String tenantId = securityHelper.getCurrentTenantId();
         try {
             byte[] pdf = service.generateAnnotatedPdf(tenantId, id);
@@ -123,6 +133,7 @@ public class DocumentSuggestionController {
      */
     @PostMapping("/{id}/create-document")
     public ResponseEntity<DocumentDto> createDocument(@PathVariable Long id) {
+        permissionService.requireSchreiben();
         String tenantId = securityHelper.getCurrentTenantId();
         DocumentDto doc = service.createDocumentFromSuggestion(tenantId, id);
         return ResponseEntity.ok(doc);
@@ -134,6 +145,7 @@ public class DocumentSuggestionController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        permissionService.requireSchreiben();
         String tenantId = securityHelper.getCurrentTenantId();
         service.delete(tenantId, id);
         return ResponseEntity.noContent().build();

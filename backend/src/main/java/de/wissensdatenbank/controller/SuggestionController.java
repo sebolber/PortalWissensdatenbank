@@ -4,6 +4,7 @@ import de.wissensdatenbank.config.SecurityHelper;
 import de.wissensdatenbank.dto.SuggestionRequest;
 import de.wissensdatenbank.dto.SuggestionResponse;
 import de.wissensdatenbank.llm.LlmModelResolutionService;
+import de.wissensdatenbank.service.PermissionService;
 import de.wissensdatenbank.service.SuggestionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,13 +22,16 @@ public class SuggestionController {
     private final SuggestionService suggestionService;
     private final LlmModelResolutionService llmModelService;
     private final SecurityHelper securityHelper;
+    private final PermissionService permissionService;
 
     public SuggestionController(SuggestionService suggestionService,
                                  LlmModelResolutionService llmModelService,
-                                 SecurityHelper securityHelper) {
+                                 SecurityHelper securityHelper,
+                                 PermissionService permissionService) {
         this.suggestionService = suggestionService;
         this.llmModelService = llmModelService;
         this.securityHelper = securityHelper;
+        this.permissionService = permissionService;
     }
 
     /**
@@ -37,6 +41,7 @@ public class SuggestionController {
     @PostMapping
     public ResponseEntity<SuggestionResponse> generateSuggestion(
             @RequestBody SuggestionRequest request) {
+        permissionService.requireSchreiben();
         String tenantId = securityHelper.getCurrentTenantId();
         String userId = securityHelper.getCurrentUserId();
         String jwtToken = securityHelper.getCurrentToken();
@@ -53,6 +58,7 @@ public class SuggestionController {
      */
     @GetMapping("/llm-models")
     public ResponseEntity<List<Map<String, Object>>> listLlmModels() {
+        permissionService.requireLesen();
         String tenantId = securityHelper.getCurrentTenantId();
         String jwtToken = securityHelper.getCurrentToken();
         return ResponseEntity.ok(llmModelService.listLlmModels(tenantId, jwtToken));
