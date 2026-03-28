@@ -48,6 +48,9 @@ public class Document {
     @Column(nullable = false)
     private int version = 1;
 
+    @Column(name = "organization_unit_id", length = 36)
+    private String organizationUnitId;
+
     @Column(name = "is_public_within_tenant", nullable = false)
     private boolean publicWithinTenant = true;
 
@@ -113,4 +116,6 @@ public class Document {
     public void setRatingCount(int ratingCount) { this.ratingCount = ratingCount; }
     public Set<Tag> getTags() { return tags; }
     public void setTags(Set<Tag> tags) { this.tags = tags; }
+    public String getOrganizationUnitId() { return organizationUnitId; }
+    public void setOrganizationUnitId(String organizationUnitId) { this.organizationUnitId = organizationUnitId; }
 }
