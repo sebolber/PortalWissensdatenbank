@@ -76,6 +76,7 @@ public class DocumentService {
         return documents.map(this::toDto);
     }
 
+    @Transactional
     public DocumentDto findById(String id) {
         String tenantId = securityHelper.getCurrentTenantId();
         Document doc = documentRepository.findByIdAndTenantId(id, tenantId)

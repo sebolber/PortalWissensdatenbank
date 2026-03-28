@@ -93,6 +93,7 @@ public class PortalCoreLlmClient implements LlmClient {
                 return error.toString();
             }
         } catch (Exception ignored) {
+            log.debug("Fehler beim Parsen der LLM-Fehlermeldung: {}", ignored.getMessage());
         }
         return responseBody;
     }

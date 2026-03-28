@@ -2,6 +2,7 @@ package de.wissensdatenbank.controller;
 
 import de.wissensdatenbank.config.SecurityHelper;
 import de.wissensdatenbank.entity.KnowledgeItem;
+import de.wissensdatenbank.service.PermissionService;
 import de.wissensdatenbank.service.Seg4ImportService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,11 +21,14 @@ public class Seg4ImportController {
 
     private final Seg4ImportService importService;
     private final SecurityHelper securityHelper;
+    private final PermissionService permissionService;
 
     public Seg4ImportController(Seg4ImportService importService,
-                                 SecurityHelper securityHelper) {
+                                 SecurityHelper securityHelper,
+                                 PermissionService permissionService) {
         this.importService = importService;
         this.securityHelper = securityHelper;
+        this.permissionService = permissionService;
     }
 
     /**
@@ -34,7 +38,7 @@ public class Seg4ImportController {
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> importPdf(
             @RequestParam("file") MultipartFile file) throws IOException {
-
+        permissionService.requireSchreiben();
         String tenantId = securityHelper.getCurrentTenantId();
         String userId = securityHelper.getCurrentUserId();
         String fileName = file.getOriginalFilename();
