@@ -23,6 +23,9 @@ public class Category {
     @Column(name = "parent_id", length = 36)
     private String parentId;
 
+    @Column(name = "organization_unit_id", length = 36)
+    private String organizationUnitId;
+
     @Column(name = "order_index")
     private int orderIndex = 0;
 
@@ -53,4 +56,6 @@ public class Category {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public String getOrganizationUnitId() { return organizationUnitId; }
+    public void setOrganizationUnitId(String organizationUnitId) { this.organizationUnitId = organizationUnitId; }
 }
