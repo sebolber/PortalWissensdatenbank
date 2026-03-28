@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
  * PDF → Text → Blöcke → Felder → Normalisierung → Persistierung.
  */
 @Service
+@Transactional(readOnly = true)
 public class Seg4ImportService {
 
     private static final Logger log = LoggerFactory.getLogger(Seg4ImportService.class);

@@ -95,35 +95,53 @@ export class KategorienComponent implements OnInit {
   }
 
   loadCategories(): void {
-    this.dokumentService.getCategories().subscribe(c => this.categories.set(c));
+    this.dokumentService.getCategories().subscribe({
+      next: c => this.categories.set(c),
+      error: (err) => console.error('Fehler beim Laden der Kategorien', err)
+    });
   }
 
   loadTags(): void {
-    this.dokumentService.getTags().subscribe(t => this.tags.set(t));
+    this.dokumentService.getTags().subscribe({
+      next: t => this.tags.set(t),
+      error: (err) => console.error('Fehler beim Laden der Tags', err)
+    });
   }
 
   addCategory(): void {
-    this.dokumentService.createCategory(this.newCategoryName, this.newCategoryDesc || undefined).subscribe(() => {
-      this.newCategoryName = '';
-      this.newCategoryDesc = '';
-      this.loadCategories();
+    this.dokumentService.createCategory(this.newCategoryName, this.newCategoryDesc || undefined).subscribe({
+      next: () => {
+        this.newCategoryName = '';
+        this.newCategoryDesc = '';
+        this.loadCategories();
+      },
+      error: (err) => console.error('Fehler beim Erstellen der Kategorie', err)
     });
   }
 
   deleteCategory(id: string): void {
     if (confirm('Kategorie wirklich loeschen?')) {
-      this.dokumentService.deleteCategory(id).subscribe(() => this.loadCategories());
+      this.dokumentService.deleteCategory(id).subscribe({
+        next: () => this.loadCategories(),
+        error: (err) => console.error('Fehler beim Loeschen der Kategorie', err)
+      });
     }
   }
 
   addTag(): void {
-    this.dokumentService.createTag(this.newTagName).subscribe(() => {
-      this.newTagName = '';
-      this.loadTags();
+    this.dokumentService.createTag(this.newTagName).subscribe({
+      next: () => {
+        this.newTagName = '';
+        this.loadTags();
+      },
+      error: (err) => console.error('Fehler beim Erstellen des Tags', err)
     });
   }
 
   deleteTag(id: string): void {
-    this.dokumentService.deleteTag(id).subscribe(() => this.loadTags());
+    this.dokumentService.deleteTag(id).subscribe({
+      next: () => this.loadTags(),
+      error: (err) => console.error('Fehler beim Loeschen des Tags', err)
+    });
   }
 }

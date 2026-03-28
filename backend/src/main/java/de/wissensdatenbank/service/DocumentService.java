@@ -27,6 +27,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class DocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);

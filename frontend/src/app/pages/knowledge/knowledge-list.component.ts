@@ -85,7 +85,7 @@ export class KnowledgeListComponent implements OnInit {
       size: 20
     }).subscribe({
       next: res => { this.items.set(res.content); this.totalPages.set(res.totalPages); this.loading.set(false); },
-      error: () => this.loading.set(false)
+      error: (err) => { console.error('Fehler beim Laden der Wissensobjekte', err); this.loading.set(false); }
     });
   }
 

@@ -372,14 +372,14 @@ export class DokumentKodierungComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.chatApi.listDocumentSuggestions().subscribe({
       next: list => { this.documents = list; this.loading = false; },
-      error: () => { this.loading = false; }
+      error: (err) => { console.error('Fehler beim Laden der Dokumente', err); this.loading = false; }
     });
   }
 
   loadModels(): void {
     this.chatApi.listLlmModels().subscribe({
       next: models => { this.llmModels = models; },
-      error: () => {}
+      error: (err) => console.error('Fehler beim Laden der LLM-Modelle', err)
     });
   }
 
@@ -394,7 +394,7 @@ export class DokumentKodierungComponent implements OnInit, OnDestroy {
           if (updated) this.selectedDocument = updated;
         }
       },
-      error: () => { this.refreshing = false; }
+      error: (err) => { console.error('Fehler beim Aktualisieren der Liste', err); this.refreshing = false; }
     });
   }
 
@@ -454,7 +454,7 @@ export class DokumentKodierungComponent implements OnInit, OnDestroy {
   showResult(doc: DocumentSuggestionDto): void {
     this.chatApi.getDocumentSuggestion(doc.id).subscribe({
       next: detail => { this.selectedDocument = detail; },
-      error: () => { this.selectedDocument = doc; }
+      error: (err) => { console.error('Fehler beim Laden des Ergebnisses', err); this.selectedDocument = doc; }
     });
   }
 

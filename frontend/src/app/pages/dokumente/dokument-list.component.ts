@@ -91,7 +91,10 @@ export class DokumentListComponent implements OnInit {
   categoryFilter = '';
 
   ngOnInit(): void {
-    this.dokumentService.getCategories().subscribe(c => this.categories.set(c));
+    this.dokumentService.getCategories().subscribe({
+      next: c => this.categories.set(c),
+      error: (err) => console.error('Fehler beim Laden der Kategorien', err)
+    });
     this.loadDocuments();
   }
 
@@ -109,7 +112,7 @@ export class DokumentListComponent implements OnInit {
         this.totalPages.set(res.totalPages);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false)
+      error: (err) => { console.error('Fehler beim Laden der Dokumente', err); this.loading.set(false); }
     });
   }
 

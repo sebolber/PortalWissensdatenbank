@@ -117,7 +117,7 @@ export class ChatComponent implements OnInit {
   ngOnInit(): void {
     this.chatApi.listLlmModels().subscribe({
       next: models => this.llmModels = models,
-      error: () => {}
+      error: (err) => console.error('Fehler beim Laden der LLM-Modelle', err)
     });
   }
 

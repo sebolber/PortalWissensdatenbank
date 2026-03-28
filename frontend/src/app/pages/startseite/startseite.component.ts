@@ -218,13 +218,13 @@ export class StartseiteComponent implements OnInit {
         this.seg4Items.set(page.content);
         this.seg4Count.set(page.totalElements);
       },
-      error: () => {}
+      error: (err) => console.error('Fehler beim Laden der SEG4-Wissensobjekte', err)
     });
 
     // Gesamt-Wissensobjekte
     this.knowledgeApi.list({ size: 1 }).subscribe({
       next: page => this.totalKnowledge.set(page.totalElements),
-      error: () => {}
+      error: (err) => console.error('Fehler beim Laden der Gesamt-Wissensobjekte', err)
     });
 
     // Dokument-Kodierungen laden
@@ -234,7 +234,7 @@ export class StartseiteComponent implements OnInit {
         this.completedKodierungen.set(list.filter(d => d.status === 'COMPLETED').length);
         this.processingKodierungen.set(list.filter(d => d.status === 'PROCESSING').length);
       },
-      error: () => {}
+      error: (err) => console.error('Fehler beim Laden der Dokument-Kodierungen', err)
     });
   }
 
