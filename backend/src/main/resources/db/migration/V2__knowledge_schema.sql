@@ -31,7 +31,7 @@ CREATE INDEX idx_ki_fulltext ON wb_knowledge_items
 -- Tags-Zuordnung für Wissensobjekte
 CREATE TABLE wb_knowledge_item_tags (
     knowledge_item_id BIGINT NOT NULL REFERENCES wb_knowledge_items(id) ON DELETE CASCADE,
-    tag_id            BIGINT NOT NULL REFERENCES wb_tags(id) ON DELETE CASCADE,
+    tag_id            VARCHAR(36)  NOT NULL REFERENCES wb_tags(id) ON DELETE CASCADE,
     PRIMARY KEY (knowledge_item_id, tag_id)
 );
 
