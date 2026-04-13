@@ -1,5 +1,7 @@
 # Backend
 backend/target/
+backend/src/main/resources/static/
+backend/mvnw
 *.class
 *.jar
 *.log
