@@ -64,4 +64,18 @@ export class KnowledgeApiService {
   createVersion(productId: number, request: Partial<ProductVersionDto>): Observable<ProductVersionDto> {
     return this.http.post<ProductVersionDto>(`/api/software-products/${productId}/versions`, request);
   }
+
+  // --- Handbuch-Import ---
+
+  importHandbuch(data: any): Observable<HandbuchImportResult> {
+    return this.http.post<HandbuchImportResult>('/api/handbuch-import', data);
+  }
+}
+
+export interface HandbuchImportResult {
+  productId: number;
+  productVersionId: number;
+  knowledgeItemCount: number;
+  subArticleCount: number;
+  message: string;
 }
