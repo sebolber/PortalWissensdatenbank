@@ -42,7 +42,7 @@ public class KnowledgeItem {
     @Column(name = "binding_level", nullable = false, length = 30)
     private BindingLevel bindingLevel;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String keywords;
 
     @Column(name = "valid_from")
@@ -53,6 +53,10 @@ public class KnowledgeItem {
 
     @Column(name = "source_reference", length = 500)
     private String sourceReference;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_version_id")
+    private ProductVersion productVersion;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -123,6 +127,9 @@ public class KnowledgeItem {
 
     public String getSourceReference() { return sourceReference; }
     public void setSourceReference(String sourceReference) { this.sourceReference = sourceReference; }
+
+    public ProductVersion getProductVersion() { return productVersion; }
+    public void setProductVersion(ProductVersion productVersion) { this.productVersion = productVersion; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

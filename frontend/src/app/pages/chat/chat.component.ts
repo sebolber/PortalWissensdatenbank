@@ -1,8 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { ChatApiService } from '../../services/chat-api.service';
+import { ChatApiService, LlmModelDto } from '../../services/chat-api.service';
 import { SuggestionResponse } from '../../models/knowledge.model';
 
 @Component({
@@ -17,6 +17,16 @@ import { SuggestionResponse } from '../../models/knowledge.model';
 
     <div class="card">
       <h3>Behandlungsdokument</h3>
+
+      <div class="form-group" *ngIf="llmModels.length > 0">
+        <label>LLM-Modell</label>
+        <select class="form-control model-select" [(ngModel)]="selectedModelId">
+          <option value="">Standard-Modell</option>
+          <option *ngFor="let m of llmModels" [value]="m.id">
+            {{ m.name || m.model }} ({{ m.provider }}){{ m.isActive ? ' *' : '' }}
+          </option>
+        </select>
+      </div>
 
       <div class="form-group">
         <label>Dokumenttext / relevante Textstellen</label>
@@ -40,14 +50,23 @@ import { SuggestionResponse } from '../../models/knowledge.model';
         {{ loading() ? 'Analyse laeuft...' : 'Kodierempfehlung generieren' }}
       </button>
 
-      <div *ngIf="error()" class="error-msg" style="margin-top:1rem">{{ error() }}</div>
+      <div *ngIf="error()" class="error-msg" style="margin-top:1rem">
+        {{ error() }}
+        <div *ngIf="isContentFilterError()" class="filter-hint">
+          Bitte waehlen Sie ein anderes LLM-Modell aus der Liste oben.
+        </div>
+      </div>
     </div>
 
     <!-- Ergebnis -->
     <div *ngIf="response()" class="result-section">
-      <div class="card suggestion-card">
-        <h3>Kodierempfehlung</h3>
-        <div class="suggestion-content" [innerHTML]="formatResponse(response()!.empfehlung)"></div>
+      <div class="card suggestion-card" *ngFor="let emp of response()!.empfehlungen; let i = index"
+           [style.margin-top]="i > 0 ? '1rem' : '0'">
+        <h3>Kodierempfehlung {{ response()!.empfehlungen.length > 1 ? (i + 1) : '' }}</h3>
+        <div class="suggestion-content" [innerHTML]="formatResponse(emp)"></div>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
         <div class="meta-info">
           <span>Modell: {{ response()!.llmModel }}</span>
           <span>Tokens: {{ response()!.tokenCount }}</span>
@@ -69,7 +88,9 @@ import { SuggestionResponse } from '../../models/knowledge.model';
   styles: [`
     .form-group { margin-bottom:1rem; }
     .form-group label { display:block; font-weight:500; margin-bottom:0.25rem; }
+    .model-select { max-width:400px; }
     .error-msg { color:#dc2626; padding:0.75rem; background:#fef2f2; border-radius:6px; }
+    .filter-hint { margin-top:0.5rem; font-weight:600; }
     .result-section { margin-top:1.5rem; }
     .suggestion-card { border-left:4px solid #2563eb; }
     .suggestion-content { white-space:pre-wrap; line-height:1.6; }
@@ -80,16 +101,25 @@ import { SuggestionResponse } from '../../models/knowledge.model';
     .lex-hint { font-size:0.75rem; color:#dc2626; font-weight:600; margin-left:0.5rem; }
   `]
 })
-export class ChatComponent {
+export class ChatComponent implements OnInit {
   private readonly chatApi = inject(ChatApiService);
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly response = signal<SuggestionResponse | null>(null);
 
+  llmModels: LlmModelDto[] = [];
+  selectedModelId = '';
   dokumentText = '';
   diagnosenText = '';
   massnahmenText = '';
+
+  ngOnInit(): void {
+    this.chatApi.listLlmModels().subscribe({
+      next: models => this.llmModels = models,
+      error: (err) => console.error('Fehler beim Laden der LLM-Modelle', err)
+    });
+  }
 
   submit(): void {
     this.loading.set(true);
@@ -102,11 +132,23 @@ export class ChatComponent {
     this.chatApi.generateSuggestion({
       dokumentText: this.dokumentText,
       diagnosen,
-      massnahmen
+      massnahmen,
+      modelConfigId: this.selectedModelId || null
     }).subscribe({
       next: res => { this.response.set(res); this.loading.set(false); },
-      error: err => { this.error.set(err.error?.message || 'Fehler bei der KI-Analyse'); this.loading.set(false); }
+      error: err => {
+        const msg = err.error?.message || err.error?.error || 'Fehler bei der KI-Analyse';
+        this.error.set(msg);
+        this.loading.set(false);
+      }
     });
+  }
+
+  isContentFilterError(): boolean {
+    const err = this.error();
+    if (!err) return false;
+    return err.includes('Content-Filter') || err.includes('blockiert') || err.includes('abgelehnt')
+        || err.includes('Leere Antwort');
   }
 
   formatResponse(text: string): string {

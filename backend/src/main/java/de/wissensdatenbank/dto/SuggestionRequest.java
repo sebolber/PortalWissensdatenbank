@@ -5,6 +5,7 @@ import java.util.List;
 public record SuggestionRequest(
         String dokumentText,
         List<String> diagnosen,
-        List<String> massnahmen
+        List<String> massnahmen,
+        String modelConfigId
 ) {
 }

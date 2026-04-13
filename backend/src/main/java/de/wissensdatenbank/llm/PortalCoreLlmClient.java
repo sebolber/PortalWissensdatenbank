@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 import java.util.Map;
@@ -32,12 +33,17 @@ public class PortalCoreLlmClient implements LlmClient {
     @Override
     @SuppressWarnings("unchecked")
     public LlmResponse chat(LlmRequest request) {
-        Map<String, Object> body = Map.of(
-                "systemPrompt", request.systemPrompt(),
-                "messages", List.of(
-                        Map.of("role", "user", "content", request.userPrompt())
-                )
-        );
+        var body = new java.util.HashMap<String, Object>();
+        body.put("systemPrompt", request.systemPrompt());
+        body.put("messages", List.of(
+                Map.of("role", "user", "content", request.userPrompt())
+        ));
+        if (request.configId() != null && !request.configId().isBlank()) {
+            body.put("configId", request.configId());
+        }
+        if (request.maxTokens() != null) {
+            body.put("maxTokens", request.maxTokens());
+        }
 
         Map<String, Object> response;
         try {
@@ -48,6 +54,11 @@ public class PortalCoreLlmClient implements LlmClient {
                     .body(body)
                     .retrieve()
                     .body(Map.class);
+        } catch (RestClientResponseException e) {
+            log.error("LLM-Proxy HTTP-Fehler {}: {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new LlmException(
+                    "LLM-Aufruf fehlgeschlagen (HTTP " + e.getStatusCode().value() + "): "
+                            + extractErrorMessage(e.getResponseBodyAsString()), e);
         } catch (Exception e) {
             log.error("LLM-Proxy-Aufruf fehlgeschlagen: {}", e.getMessage(), e);
             throw new LlmException(
@@ -70,5 +81,20 @@ public class PortalCoreLlmClient implements LlmClient {
         }
 
         return new LlmResponse(content, model, configId, tokenCount);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractErrorMessage(String responseBody) {
+        try {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> errorMap = mapper.readValue(responseBody, Map.class);
+            Object error = errorMap.get("error");
+            if (error != null) {
+                return error.toString();
+            }
+        } catch (Exception ignored) {
+            log.debug("Fehler beim Parsen der LLM-Fehlermeldung: {}", ignored.getMessage());
+        }
+        return responseBody;
     }
 }

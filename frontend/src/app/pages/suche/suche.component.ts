@@ -65,10 +65,13 @@ export class SucheComponent {
   search(): void {
     if (!this.query.trim()) return;
     this.lastQuery = this.query;
-    this.dokumentService.list({ q: this.query, size: 50 }).subscribe(res => {
-      this.results.set(res.content);
-      this.totalResults.set(res.totalElements);
-      this.searched.set(true);
+    this.dokumentService.list({ q: this.query, size: 50 }).subscribe({
+      next: res => {
+        this.results.set(res.content);
+        this.totalResults.set(res.totalElements);
+        this.searched.set(true);
+      },
+      error: (err) => console.error('Fehler bei der Suche', err)
     });
   }
 }

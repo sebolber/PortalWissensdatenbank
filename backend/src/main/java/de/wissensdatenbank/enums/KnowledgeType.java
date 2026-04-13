@@ -6,5 +6,6 @@ package de.wissensdatenbank.enums;
 public enum KnowledgeType {
     SEG4,
     ARTICLE,
-    GUIDELINE
+    GUIDELINE,
+    HANDBUCH
 }

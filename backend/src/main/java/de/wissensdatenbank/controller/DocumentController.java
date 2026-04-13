@@ -100,6 +100,7 @@ public class DocumentController {
 
     @GetMapping("/statistik")
     public StatistikDto statistik() {
+        permissionService.requireLesen();
         return documentService.getStatistik();
     }
 }

@@ -22,13 +22,27 @@ public interface KnowledgeItemRepository extends JpaRepository<KnowledgeItem, Lo
     Optional<KnowledgeItem> findByIdAndTenantId(Long id, String tenantId);
 
     /**
-     * PostgreSQL Volltext-Suche (deutsch) über title, summary, keywords.
+     * PostgreSQL Volltext-Suche (deutsch) über title, summary, keywords,
+     * SEG4-Empfehlungsinhalte und SubArticle-Inhalte (heading, content).
      */
     @Query(value = """
-            SELECT * FROM wb_knowledge_items
-            WHERE tenant_id = :tenantId
-              AND to_tsvector('german', COALESCE(title,'') || ' ' || COALESCE(summary,'') || ' ' || COALESCE(keywords,''))
-                  @@ plainto_tsquery('german', :query)
+            SELECT DISTINCT ki.* FROM wb_knowledge_items ki
+            LEFT JOIN wb_seg4_recommendations sr ON sr.knowledge_item_id = ki.id
+            LEFT JOIN wb_knowledge_sub_articles ksa ON ksa.knowledge_item_id = ki.id
+            WHERE ki.tenant_id = :tenantId
+              AND (
+                to_tsvector('german', COALESCE(ki.title,'') || ' ' || COALESCE(ki.summary,'') || ' ' || COALESCE(ki.keywords,''))
+                    @@ plainto_tsquery('german', :query)
+                OR to_tsvector('german',
+                    COALESCE(sr.schlagworte,'') || ' ' || COALESCE(sr.problem_erlaeuterung,'') || ' ' ||
+                    COALESCE(sr.empfehlung,'') || ' ' || COALESCE(sr.entscheidung,'') || ' ' ||
+                    COALESCE(sr.zusatzhinweis,''))
+                    @@ plainto_tsquery('german', :query)
+                OR to_tsvector('german', COALESCE(ksa.heading,'') || ' ' || COALESCE(ksa.content,''))
+                    @@ plainto_tsquery('german', :query)
+              )
             """, nativeQuery = true)
     List<KnowledgeItem> fullTextSearch(@Param("tenantId") String tenantId, @Param("query") String query);
+
+    List<KnowledgeItem> findByTenantIdAndProductVersionId(String tenantId, Long productVersionId);
 }

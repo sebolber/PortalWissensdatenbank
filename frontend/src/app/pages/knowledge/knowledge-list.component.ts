@@ -24,6 +24,7 @@ import { KnowledgeItemDto, KnowledgeType } from '../../models/knowledge.model';
         <option value="SEG4">SEG4</option>
         <option value="ARTICLE">Artikel</option>
         <option value="GUIDELINE">Leitlinie</option>
+        <option value="HANDBUCH">Handbuch</option>
       </select>
     </div>
 
@@ -38,6 +39,7 @@ import { KnowledgeItemDto, KnowledgeType } from '../../models/knowledge.model';
             <th>Titel</th>
             <th>Typ</th>
             <th>Verbindlichkeit</th>
+            <th>Produkt</th>
             <th>SEG4</th>
             <th>Erstellt</th>
           </tr>
@@ -45,8 +47,9 @@ import { KnowledgeItemDto, KnowledgeType } from '../../models/knowledge.model';
         <tbody>
           <tr *ngFor="let item of items()">
             <td><a [routerLink]="'/wissen/' + item.id" style="font-weight:500">{{ item.title }}</a></td>
-            <td><span class="badge">{{ item.knowledgeType }}</span></td>
+            <td><span class="badge">{{ typeLabel(item.knowledgeType) }}</span></td>
             <td><span class="badge" [ngClass]="'badge-' + item.bindingLevel.toLowerCase()">{{ item.bindingLevel }}</span></td>
+            <td>{{ item.productName ? item.productName + ' ' + (item.productVersionLabel || '') : '-' }}</td>
             <td>{{ item.seg4RecommendationCount || '-' }}</td>
             <td>{{ item.createdAt | date:'dd.MM.yyyy' }}</td>
           </tr>
@@ -85,9 +88,19 @@ export class KnowledgeListComponent implements OnInit {
       size: 20
     }).subscribe({
       next: res => { this.items.set(res.content); this.totalPages.set(res.totalPages); this.loading.set(false); },
-      error: () => this.loading.set(false)
+      error: (err) => { console.error('Fehler beim Laden der Wissensobjekte', err); this.loading.set(false); }
     });
   }
 
   goToPage(p: number): void { this.page.set(p); this.load(); }
+
+  typeLabel(type: KnowledgeType): string {
+    switch (type) {
+      case 'SEG4': return 'SEG4';
+      case 'ARTICLE': return 'Artikel';
+      case 'GUIDELINE': return 'Leitlinie';
+      case 'HANDBUCH': return 'Handbuch';
+      default: return type;
+    }
+  }
 }

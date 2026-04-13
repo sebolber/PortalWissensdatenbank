@@ -119,31 +119,49 @@ export class DokumentDetailComponent implements OnInit {
     if (id) {
       this.dokumentService.getById(id).subscribe({
         next: (d) => { this.doc.set(d); this.loading.set(false); },
-        error: () => this.loading.set(false)
+        error: (err) => { console.error('Fehler beim Laden des Dokuments', err); this.loading.set(false); }
       });
-      this.dokumentService.getVersions(id).subscribe(v => this.versions.set(v));
+      this.dokumentService.getVersions(id).subscribe({
+        next: v => this.versions.set(v),
+        error: (err) => console.error('Fehler beim Laden der Versionen', err)
+      });
     }
   }
 
   publish(): void {
-    this.dokumentService.publish(this.doc()!.id).subscribe(d => this.doc.set(d));
+    this.dokumentService.publish(this.doc()!.id).subscribe({
+      next: d => this.doc.set(d),
+      error: (err) => console.error('Fehler beim Veroeffentlichen', err)
+    });
   }
 
   archive(): void {
-    this.dokumentService.archive(this.doc()!.id).subscribe(d => this.doc.set(d));
+    this.dokumentService.archive(this.doc()!.id).subscribe({
+      next: d => this.doc.set(d),
+      error: (err) => console.error('Fehler beim Archivieren', err)
+    });
   }
 
   deleteDoc(): void {
     if (confirm('Dokument wirklich loeschen?')) {
-      this.dokumentService.delete(this.doc()!.id).subscribe(() => this.router.navigate(['/dokumente']));
+      this.dokumentService.delete(this.doc()!.id).subscribe({
+        next: () => this.router.navigate(['/dokumente']),
+        error: (err) => console.error('Fehler beim Loeschen des Dokuments', err)
+      });
     }
   }
 
   submitFeedback(): void {
-    this.dokumentService.submitFeedback(this.doc()!.id, this.feedbackRating, this.feedbackComment).subscribe(() => {
-      this.dokumentService.getById(this.doc()!.id).subscribe(d => this.doc.set(d));
-      this.feedbackRating = 0;
-      this.feedbackComment = '';
+    this.dokumentService.submitFeedback(this.doc()!.id, this.feedbackRating, this.feedbackComment).subscribe({
+      next: () => {
+        this.dokumentService.getById(this.doc()!.id).subscribe({
+          next: d => this.doc.set(d),
+          error: (err) => console.error('Fehler beim Neuladen des Dokuments', err)
+        });
+        this.feedbackRating = 0;
+        this.feedbackComment = '';
+      },
+      error: (err) => console.error('Fehler beim Absenden des Feedbacks', err)
     });
   }
 }
