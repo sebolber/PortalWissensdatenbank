@@ -17,4 +17,6 @@ public interface TagRepository extends JpaRepository<Tag, String> {
     boolean existsByTenantIdAndName(String tenantId, String name);
 
     long countByTenantId(String tenantId);
+
+    List<Tag> findByTenantIdAndNameIn(String tenantId, List<String> names);
 }
